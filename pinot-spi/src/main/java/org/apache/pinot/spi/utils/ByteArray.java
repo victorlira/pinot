@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
  *   <li>Implements equals() and hashCode(), so it can be used as key for HashMap/Set</li>
  *   <li>Caches the hash code of the byte[]</li>
  * </ul>
+ * NOTE: DO NOT reuse the bytes when hash is needed because hash is only calculated once and cached.
  */
 public class ByteArray implements Comparable<ByteArray>, Serializable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ByteArray.class);
