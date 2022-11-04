@@ -592,7 +592,7 @@ public abstract class BaseClusterIntegrationTest extends ClusterTest {
   }
 
   protected long getCurrentCountStarResult(String tableName) {
-    return getPinotConnection().execute("SELECT COUNT(*) FROM " + tableName).getResultSet(0).getLong(0);
+    return getPinotConnection().execute("SET pagination = true; SELECT COUNT(*) FROM " + tableName).getResultSet(0).getLong(0);
   }
 
   /**
