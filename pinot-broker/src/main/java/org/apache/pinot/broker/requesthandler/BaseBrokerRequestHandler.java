@@ -21,6 +21,7 @@ package org.apache.pinot.broker.requesthandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +31,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -284,6 +287,62 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
       return new BrokerResponseNative(QueryException.getException(QueryException.SQL_PARSING_ERROR, e));
     }
 
+    if (Boolean.parseBoolean(pinotQuery.getQueryOptions().get("pagination"))) {
+      String tableName = TableNameBuilder.extractRawTableName(pinotQuery.getDataSource().getTableName());
+      // Step 1: Generate a pointer.
+      // TODO: a. add a method to generate a ID
+      //       b. replace the dummyInstanceId with a real one.
+      int hash = ("dummyInstanceId" + requestId + System.currentTimeMillis()).hashCode();
+      String pointer = tableName + "_" + hash;
+
+      // Step 2: TODO invoke pagination query initialization API.
+
+      // Step 3: Submit to query executor.
+      final SqlNodeAndOptions finalSqlNodeAndOptions = sqlNodeAndOptions;
+      // TODO: use an pool based executor as the 2nd parameter below.
+      CompletableFuture.supplyAsync(() -> {
+        try {
+          return handleRequest(requestId, query, pinotQuery, compilationStartTimeNs, finalSqlNodeAndOptions, request,
+              requesterIdentity, requestContext);
+        } catch (Exception e) {
+          throw new CompletionException(e);
+        }
+      }).thenApply(brokerResponseNative -> {
+        // Step 5: TODO invoke upload result API.
+        try {
+          System.out.println("Async query execution response: " + brokerResponseNative.toJsonString());
+          return null;
+        } catch (IOException e) {
+          throw new CompletionException(e);
+        }
+      }).exceptionally(exception -> {
+        // Step 6: TODO Handle exception.
+        System.out.println(exception);
+        return null;
+      });
+
+      // Step 4: TODO Put pointer only to the response and return.
+      BrokerResponseNative brokerResponseNative = new BrokerResponseNative();
+
+      DataSchema dataSchema =
+          new DataSchema(new String[]{"pointer"}, new DataSchema.ColumnDataType[]{DataSchema.ColumnDataType.STRING});
+      Object[] objects = new Object[]{pointer};
+      List<Object[]> rows = new ArrayList<>();
+      rows.add(objects);
+      ResultTable resultTable = new ResultTable(dataSchema, rows);
+      brokerResponseNative.setResultTable(resultTable);
+      System.out.println("Submission response: " + brokerResponseNative.toJsonString());
+      return brokerResponseNative;
+    }
+
+    return handleRequest(requestId, query, pinotQuery, compilationStartTimeNs, sqlNodeAndOptions, request,
+        requesterIdentity, requestContext);
+  }
+
+  private BrokerResponseNative handleRequest(long requestId, String query, PinotQuery pinotQuery,
+      long compilationStartTimeNs, @Nullable SqlNodeAndOptions sqlNodeAndOptions, JsonNode request,
+      @Nullable RequesterIdentity requesterIdentity, RequestContext requestContext)
+      throws Exception {
     if (isLiteralOnlyQuery(pinotQuery)) {
       LOGGER.debug("Request {} contains only Literal, skipping server query: {}", requestId, query);
       try {
@@ -528,8 +587,7 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
       // Send empty response since we don't need to evaluate either offline or realtime request.
       BrokerResponseNative brokerResponse = BrokerResponseNative.empty();
       // Extract source info from incoming request
-      _queryLogger.log(new QueryLogger.QueryLogParams(
-          requestId, query, requestContext, tableName, 0, new ServerStats(),
+      _queryLogger.log(new QueryLogger.QueryLogParams(requestId, query, requestContext, tableName, 0, new ServerStats(),
           brokerResponse, System.nanoTime(), requesterIdentity));
       return brokerResponse;
     }
@@ -670,9 +728,9 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
         LOGGER.debug("Remove track of running query: {}", requestId);
       }
     } else {
-      brokerResponse = processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest,
-          offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats,
-          requestContext);
+      brokerResponse =
+          processBrokerRequest(requestId, brokerRequest, serverBrokerRequest, offlineBrokerRequest, offlineRoutingTable,
+              realtimeBrokerRequest, realtimeRoutingTable, remainingTimeMs, serverStats, requestContext);
     }
 
     brokerResponse.setExceptions(exceptions);
@@ -696,9 +754,8 @@ public abstract class BaseBrokerRequestHandler implements BrokerRequestHandler {
 
     // Extract source info from incoming request
     _queryLogger.log(
-        new QueryLogger.QueryLogParams(
-            requestId, query, requestContext, tableName, numUnavailableSegments, serverStats, brokerResponse,
-            totalTimeMs, requesterIdentity));
+        new QueryLogger.QueryLogParams(requestId, query, requestContext, tableName, numUnavailableSegments, serverStats,
+            brokerResponse, totalTimeMs, requesterIdentity));
     return brokerResponse;
   }
 
