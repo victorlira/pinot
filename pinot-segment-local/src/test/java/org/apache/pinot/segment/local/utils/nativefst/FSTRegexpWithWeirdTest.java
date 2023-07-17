@@ -18,9 +18,9 @@
  */
 package org.apache.pinot.segment.local.utils.nativefst;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import org.apache.pinot.segment.local.utils.nativefst.builder.FSTBuilder;
@@ -66,7 +66,7 @@ public class FSTRegexpWithWeirdTest {
     FST fst = fstBuilder.complete();
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
 
-    _fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    _fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
   }
 
   @Test

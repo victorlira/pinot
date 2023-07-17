@@ -21,7 +21,7 @@ package org.apache.pinot.segment.local.utils.nativefst;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.Collections;
@@ -43,20 +43,18 @@ import org.apache.pinot.segment.spi.memory.PinotDataBufferMemoryManager;
  */
 public abstract class FST implements Iterable<ByteBuffer> {
   /**
-   * @param in The input stream.
+   * @param byteBuffer The input bytebuffer
    * @param length Length of input to be read
    * @return Reads remaining bytes upto length from an input stream and returns
    * them as a byte array. Null if no data was read
    * @throws IOException Rethrown if an I/O exception occurs.
    */
-  protected static byte[] readRemaining(InputStream in, int length)
-      throws IOException {
+  protected static byte[] readRemaining(ByteBuffer byteBuffer, int length) {
     byte[] buf = new byte[length];
-    int readLen;
 
-    readLen = in.read(buf, 0, length);
-
-    if (readLen == -1) {
+    try {
+      byteBuffer.get(buf, 0, length);
+    } catch (BufferUnderflowException e) {
       return null;
     }
 
@@ -66,29 +64,28 @@ public abstract class FST implements Iterable<ByteBuffer> {
   /**
    * Wrapper for the main read function
    */
-  public static FST read(InputStream stream)
+  public static FST read(ByteBuffer buffer)
       throws IOException {
-    return read(stream, false, new DirectMemoryManager(FST.class.getName()));
+    return read(buffer, false, new DirectMemoryManager(FST.class.getName()));
   }
 
   /**
    * A factory for reading automata in any of the supported versions.
    *
-   * @param stream
-   *          The input stream to read automaton data from. The stream is not
-   *          closed.
+   * @param buffer
+   *          The input byte buffer.
    * @return Returns an instantiated automaton. Never null.
    * @throws IOException
    *           If the input stream does not represent an automaton or is
    *           otherwise invalid.
    */
-  public static FST read(InputStream stream, boolean hasOutputSymbols, PinotDataBufferMemoryManager memoryManager)
+  public static FST read(ByteBuffer buffer, boolean hasOutputSymbols, PinotDataBufferMemoryManager memoryManager)
       throws IOException {
-    FSTHeader header = FSTHeader.read(stream);
+    FSTHeader header = FSTHeader.read(buffer);
 
     switch (header._version) {
       case ImmutableFST.VERSION:
-        return new ImmutableFST(stream, hasOutputSymbols, memoryManager);
+        return new ImmutableFST(buffer, hasOutputSymbols, memoryManager);
       default:
         throw new IOException(
             String.format(Locale.ROOT, "Unsupported automaton version: 0x%02x", header._version & 0xFF));
@@ -98,9 +95,8 @@ public abstract class FST implements Iterable<ByteBuffer> {
   /**
    * A factory for reading a specific FST subclass, including proper casting.
    *
-   * @param stream
-   *          The input stream to read automaton data from. The stream is not
-   *          closed.
+   * @param in
+   *          The input bytebuffer.
    * @param clazz A subclass of {@link FST} to cast the read automaton to.
    * @param <T> A subclass of {@link FST} to cast the read automaton to.
    * @return Returns an instantiated automaton. Never null.
@@ -109,9 +105,9 @@ public abstract class FST implements Iterable<ByteBuffer> {
    *           invalid or the class of the automaton read from the input stream
    *           is not assignable to <code>clazz</code>.
    */
-  public static <T extends FST> T read(InputStream stream, Class<? extends T> clazz, boolean hasOutputSymbols)
+  public static <T extends FST> T read(ByteBuffer in, Class<? extends T> clazz, boolean hasOutputSymbols)
       throws IOException {
-    FST fst = read(stream, hasOutputSymbols, new DirectMemoryManager(FST.class.getName()));
+    FST fst = read(in, hasOutputSymbols, new DirectMemoryManager(FST.class.getName()));
     if (!clazz.isInstance(fst)) {
       throw new IOException(
           String.format(Locale.ROOT, "Expected FST type %s, but read an incompatible type %s.", clazz.getName(),

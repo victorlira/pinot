@@ -18,7 +18,6 @@
  */
 package org.apache.pinot.segment.local.utils.nativefst;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -135,7 +134,7 @@ public abstract class SerializerTestBase {
   private void checkSerialization0(FSTSerializer serializer, final byte[][] in, FST root, boolean hasOutputSymbols)
       throws IOException {
     byte[] fstData = serializer.serialize(root, new ByteArrayOutputStream()).toByteArray();
-    FST fst = FST.read(new ByteArrayInputStream(fstData), hasOutputSymbols,
+    FST fst = FST.read(ByteBuffer.wrap(fstData), hasOutputSymbols,
         new DirectMemoryManager(SerializerTestBase.class.getName()));
     checkCorrect(in, fst);
   }
@@ -176,8 +175,7 @@ public abstract class SerializerTestBase {
 
     FST fst = FSTBuilder.build(input, new int[]{10, 11, 12, 13});
     byte[] fstData = createSerializer().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst =
-        FST.read(new ByteArrayInputStream(fstData), true, new DirectMemoryManager(SerializerTestBase.class.getName()));
+    fst = FST.read(ByteBuffer.wrap(fstData), true, new DirectMemoryManager(SerializerTestBase.class.getName()));
 
     // Ensure we have the NUMBERS flag set.
     assertTrue(fst.getFlags().contains(NUMBERS));

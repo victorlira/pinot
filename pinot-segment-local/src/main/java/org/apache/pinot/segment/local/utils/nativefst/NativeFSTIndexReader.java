@@ -20,8 +20,6 @@ package org.apache.pinot.segment.local.utils.nativefst;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import org.apache.avro.util.ByteBufferInputStream;
 import org.apache.pinot.segment.local.utils.nativefst.utils.RegexpMatcher;
 import org.apache.pinot.segment.spi.index.reader.TextIndexReader;
 import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
@@ -49,7 +47,7 @@ public class NativeFSTIndexReader implements TextIndexReader {
       throws IOException {
     // TODO: Implement an InputStream directly on PinotDataBuffer
     ByteBuffer byteBuffer = dataBuffer.toDirectByteBuffer(0, (int) dataBuffer.size());
-    _fst = FST.read(new ByteBufferInputStream(Collections.singletonList(byteBuffer)), ImmutableFST.class, true);
+    _fst = FST.read(byteBuffer, ImmutableFST.class, true);
   }
 
   @Override

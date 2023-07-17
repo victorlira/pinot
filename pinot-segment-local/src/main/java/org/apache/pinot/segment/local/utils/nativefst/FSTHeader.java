@@ -19,8 +19,8 @@
 package org.apache.pinot.segment.local.utils.nativefst;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 
 
 /**
@@ -47,14 +47,14 @@ public final class FSTHeader {
    * @return Returns a valid {@link FSTHeader} with version information.
    * @throws IOException If the stream ends prematurely or if it contains invalid data.
    */
-  public static FSTHeader read(InputStream in)
+  public static FSTHeader read(ByteBuffer in)
       throws IOException {
-    if (in.read() != ((FST_MAGIC >>> 24)) || in.read() != ((FST_MAGIC >>> 16) & 0xff) || in.read() != ((FST_MAGIC >>> 8)
-        & 0xff) || in.read() != ((FST_MAGIC) & 0xff)) {
+    if (in.get() != ((FST_MAGIC >>> 24)) || in.get() != ((FST_MAGIC >>> 16) & 0xff) || in.get() != ((FST_MAGIC >>> 8)
+        & 0xff) || in.get() != ((FST_MAGIC) & 0xff)) {
       throw new IOException("Invalid file header, probably not an FST.");
     }
 
-    int version = in.read();
+    int version = in.get();
     if (version == -1) {
       throw new IOException("Truncated file, no version number.");
     }

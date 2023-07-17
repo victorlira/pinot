@@ -19,13 +19,16 @@
 package org.apache.pinot.segment.local.utils.nativefst;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.pinot.segment.local.utils.nativefst.builder.FSTBuilder;
@@ -77,20 +80,28 @@ public final class ImmutableFSTTest {
   @Test
   public void testVersion5()
       throws IOException {
-    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/abc.native.fst")) {
-      FST fst = FST.read(inputStream);
+    try {
+      ByteBuffer buffer =
+          ByteBuffer.wrap(getClass().getClassLoader().getResourceAsStream("data/abc.native.fst").readAllBytes());
+      FST fst = FST.read(buffer);
       assertFalse(fst.getFlags().contains(FSTFlags.NUMBERS));
       verifyContent(fst, _expected);
+    } catch (IOException e) {
+      throw e;
     }
   }
 
   @Test
   public void testVersion5WithNumbers()
       throws IOException {
-    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/abc-numbers.native.fst")) {
-      FST fst = FST.read(inputStream);
+    try {
+      ByteBuffer buffer = ByteBuffer.wrap(
+          getClass().getClassLoader().getResourceAsStream("data/abc-numbers.native.fst").readAllBytes());
+      FST fst = FST.read(buffer);
       assertTrue(fst.getFlags().contains(FSTFlags.NUMBERS));
       verifyContent(fst, _expected);
+    } catch (IOException e) {
+      throw e;
     }
   }
 
@@ -98,11 +109,15 @@ public final class ImmutableFSTTest {
   public void testArcsAndNodes()
       throws IOException {
     for (String resourceName : new String[]{"data/abc.native.fst", "data/abc-numbers.native.fst"}) {
-      try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
-        FST fst = FST.read(inputStream);
+      try {
+        ByteBuffer buffer =
+            ByteBuffer.wrap(getClass().getClassLoader().getResourceAsStream(resourceName).readAllBytes());
+        FST fst = FST.read(buffer);
         FSTInfo fstInfo = new FSTInfo(fst);
         assertEquals(fstInfo._nodeCount, 4);
         assertEquals(fstInfo._arcsCount, 7);
+      } catch (IOException e) {
+        throw e;
       }
     }
   }
@@ -110,8 +125,10 @@ public final class ImmutableFSTTest {
   @Test
   public void testNumbers()
       throws IOException {
-    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/abc-numbers.native.fst")) {
-      FST fst = FST.read(inputStream);
+    try {
+      ByteBuffer in = ByteBuffer.wrap(
+          getClass().getClassLoader().getResourceAsStream("data/abc-numbers.native.fst").readAllBytes());
+      FST fst = FST.read(in);
       assertTrue(fst.getFlags().contains(FSTFlags.NEXTBIT));
 
       // Get all numbers for nodes.
@@ -121,6 +138,8 @@ public final class ImmutableFSTTest {
 
       result.sort(null);
       assertEquals(result, Arrays.asList("0 c", "1 b", "2 ba", "3 a", "4 ac", "5 aba"));
+    } catch (IOException e) {
+      throw e;
     }
   }
 
@@ -138,8 +157,14 @@ public final class ImmutableFSTTest {
     File fstFile = new File(FileUtils.getTempDirectory(), "test.native.fst");
     fst.save(new FileOutputStream(fstFile));
 
-    try (FileInputStream inputStream = new FileInputStream(fstFile)) {
-      verifyContent(FST.read(inputStream, ImmutableFST.class, true), inputList);
+    try {
+      FileChannel fileChannel = (FileChannel) Files.newByteChannel(
+          fstFile.toPath(), EnumSet.of(StandardOpenOption.READ));
+      MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+
+      verifyContent(FST.read(mappedByteBuffer, ImmutableFST.class, true), inputList);
+    } catch (IOException e) {
+      throw e;
     }
 
     FileUtils.deleteQuietly(fstFile);

@@ -18,7 +18,8 @@
  */
 package org.apache.pinot.segment.local.utils.nativefst;
 
-import java.io.InputStream;
+import java.nio.ByteBuffer;
+
 import org.apache.pinot.segment.local.io.writer.impl.DirectMemoryManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -36,8 +37,12 @@ public class ImmutableFSTDeserializedTest {
   @BeforeClass
   public void setUp()
       throws Exception {
-    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/serfst.txt")) {
-      _fst = FST.read(inputStream, true, new DirectMemoryManager(ImmutableFSTDeserializedTest.class.getName()));
+    try {
+      ByteBuffer buffer =
+          ByteBuffer.wrap(getClass().getClassLoader().getResourceAsStream("data/serfst.txt").readAllBytes());
+      _fst = FST.read(buffer, true, new DirectMemoryManager(ImmutableFSTDeserializedTest.class.getName()));
+    } catch (Exception e) {
+      throw new RuntimeException(e.getMessage());
     }
   }
 

@@ -23,8 +23,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Collections;
-import org.apache.avro.util.ByteBufferInputStream;
 import org.apache.pinot.segment.local.segment.creator.impl.text.NativeTextIndexCreator;
 import org.apache.pinot.segment.local.segment.index.readers.BitmapInvertedIndexReader;
 import org.apache.pinot.segment.local.utils.nativefst.FST;
@@ -89,7 +87,7 @@ public class NativeTextIndexReader implements TextIndexReader {
     long fstDataEndOffset = fstDataStartOffset + fstDataLength;
     ByteBuffer byteBuffer = _buffer.toDirectByteBuffer(fstDataStartOffset, fstDataLength);
     try {
-      _fst = FST.read(new ByteBufferInputStream(Collections.singletonList(byteBuffer)), ImmutableFST.class, true);
+      _fst = FST.read(byteBuffer, ImmutableFST.class, true);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

@@ -18,9 +18,7 @@
  */
 package org.apache.pinot.segment.local.utils.nativefst;
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
@@ -162,13 +160,11 @@ public final class ImmutableFST extends FST {
   /**
    * Read and wrap a binary automaton in FST version 5.
    */
-  ImmutableFST(InputStream stream, boolean hasOutputSymbols, PinotDataBufferMemoryManager memoryManager)
-      throws IOException {
-    DataInputStream in = new DataInputStream(stream);
+  ImmutableFST(ByteBuffer in, boolean hasOutputSymbols, PinotDataBufferMemoryManager memoryManager) {
 
-    _filler = in.readByte();
-    _annotation = in.readByte();
-    final byte hgtl = in.readByte();
+    _filler = in.get();
+    _annotation = in.get();
+    final byte hgtl = in.get();
 
     _mutableBytesStore = new OffHeapMutableBytesStore(memoryManager, "ImmutableFST");
 
@@ -187,7 +183,7 @@ public final class ImmutableFST extends FST {
     _gotoLength = hgtl & 0x0f;
 
     if (hasOutputSymbols) {
-      final int outputSymbolsLength = in.readInt();
+      final int outputSymbolsLength = in.getInt();
       byte[] outputSymbolsBuffer = readRemaining(in, outputSymbolsLength);
 
       if (outputSymbolsBuffer.length > 0) {
@@ -200,10 +196,11 @@ public final class ImmutableFST extends FST {
     readRemaining(in);
   }
 
-  private void readRemaining(InputStream in)
-      throws IOException {
+  private void readRemaining(ByteBuffer in) {
     byte[] buffer = new byte[PER_BUFFER_SIZE];
-    while ((in.read(buffer)) >= 0) {
+    while (in.hasRemaining()) {
+      int dataSize = in.remaining() > PER_BUFFER_SIZE ? PER_BUFFER_SIZE : in.remaining();
+      in.get(buffer, 0, dataSize);
       _mutableBytesStore.add(buffer);
     }
   }

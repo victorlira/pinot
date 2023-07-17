@@ -19,10 +19,10 @@
 package org.apache.pinot.segment.local.utils.nativefst;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import java.util.SortedMap;
@@ -60,7 +60,7 @@ public class FSTSanityTest {
     FST fst = FSTBuilder.buildFST(input);
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
 
-    _nativeFST = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    _nativeFST = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
     _fst = org.apache.pinot.segment.local.utils.fst.FSTBuilder.buildFST(input);
   }
 

@@ -19,14 +19,16 @@
 package org.apache.pinot.segment.local.utils.nativefst;
 
 import com.google.common.collect.Sets;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import org.apache.pinot.segment.local.io.writer.impl.DirectMemoryManager;
@@ -61,8 +63,12 @@ public class FSTTraversalTest {
   @BeforeClass
   public void setUp()
       throws Exception {
-    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("data/en_tst.dict")) {
-      _fst = FST.read(inputStream, false, new DirectMemoryManager(FSTTraversalTest.class.getName()));
+    try {
+      ByteBuffer buffer =
+          ByteBuffer.wrap(getClass().getClassLoader().getResourceAsStream("data/en_tst.dict").readAllBytes());
+      _fst = FST.read(buffer, false, new DirectMemoryManager(FSTTraversalTest.class.getName()));
+    } catch (IOException e) {
+      throw e;
     }
 
     String regexTestInputString =
@@ -86,7 +92,7 @@ public class FSTTraversalTest {
         Arrays.asList("a".getBytes(UTF_8), "ab".getBytes(UTF_8), "abc".getBytes(UTF_8), "ad".getBytes(UTF_8),
             "bcd".getBytes(UTF_8), "bce".getBytes(UTF_8)), new int[]{10, 11, 12, 13, 14, 15});
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     FSTTraversal fstTraversal = new FSTTraversal(fst);
     assertEquals(fstTraversal.match("a".getBytes(UTF_8))._kind, EXACT_MATCH);
@@ -153,7 +159,10 @@ public class FSTTraversalTest {
   public void testMatch()
       throws IOException {
     File file = new File("./src/test/resources/data/abc.native.fst");
-    FST fst = FST.read(new FileInputStream(file), false, new DirectMemoryManager(FSTTraversalTest.class.getName()));
+    FileChannel fileChannel = (FileChannel) Files.newByteChannel(
+        file.toPath(), EnumSet.of(StandardOpenOption.READ));
+    MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+    FST fst = FST.read(mappedByteBuffer, false, new DirectMemoryManager(FSTTraversalTest.class.getName()));
     FSTTraversal traversalHelper = new FSTTraversal(fst);
 
     MatchResult m = traversalHelper.match("ax".getBytes());
@@ -184,7 +193,7 @@ public class FSTTraversalTest {
 
     FST fst = builder.complete();
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     RoaringBitmapWriter<MutableRoaringBitmap> writer = RoaringBitmapWriter.bufferWriter().get();
     RegexpMatcher.regexMatch("h.*", fst, writer::add);
@@ -204,7 +213,7 @@ public class FSTTraversalTest {
 
     FST fst = builder.complete();
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     RoaringBitmapWriter<MutableRoaringBitmap> writer = RoaringBitmapWriter.bufferWriter().get();
     RegexpMatcher.regexMatch(".*h", fst, writer::add);
@@ -222,7 +231,7 @@ public class FSTTraversalTest {
 
     FST fst = FSTBuilder.buildFST(input);
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     RoaringBitmapWriter<MutableRoaringBitmap> writer = RoaringBitmapWriter.bufferWriter().get();
     RegexpMatcher.regexMatch(".*123", fst, writer::add);
@@ -246,7 +255,7 @@ public class FSTTraversalTest {
 
     FST fst = FSTBuilder.buildFST(input);
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     RoaringBitmapWriter<MutableRoaringBitmap> writer = RoaringBitmapWriter.bufferWriter().get();
     RegexpMatcher.regexMatch("hello.*123", fst, writer::add);
@@ -270,7 +279,7 @@ public class FSTTraversalTest {
 
     FST fst = FSTBuilder.buildFST(input);
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     ImmutableFST.printToString(fst);
   }
@@ -284,7 +293,7 @@ public class FSTTraversalTest {
 
     FST fst = FSTBuilder.buildFST(input);
     byte[] fstData = new FSTSerializerImpl().withNumbers().serialize(fst, new ByteArrayOutputStream()).toByteArray();
-    fst = FST.read(new ByteArrayInputStream(fstData), ImmutableFST.class, true);
+    fst = FST.read(ByteBuffer.wrap(fstData), ImmutableFST.class, true);
 
     RoaringBitmapWriter<MutableRoaringBitmap> writer = RoaringBitmapWriter.bufferWriter().get();
     RegexpMatcher.regexMatch("cars?", fst, writer::add);
