@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
-import org.apache.pinot.segment.local.realtime.impl.dictionary.OffHeapMutableBytesStore;
 import org.apache.pinot.segment.spi.memory.PinotDataBufferMemoryManager;
 
 
@@ -132,12 +131,17 @@ public final class ImmutableFST extends FST {
 
   private static final int PER_BUFFER_SIZE = 16;
 
+  private static final int PER_BUCKET_SIZE = 10_000;
+
   /**
-   * An array of bytes with the internal representation of the automaton. Please
+   * A list of bytes with the internal representation of the automaton. Please
    * see the documentation of this class for more information on how this
    * structure is organized.
    */
-  public final OffHeapMutableBytesStore _mutableBytesStore;
+  public final byte[][][] _bytesList;
+  public int currentBucket;
+  public int offset;
+  public int bucketCount = 10;
   /**
    * The length of the node header structure (if the automaton was compiled with
    * <code>NUMBERS</code> option). Otherwise zero.
@@ -162,11 +166,15 @@ public final class ImmutableFST extends FST {
    */
   ImmutableFST(ByteBuffer in, boolean hasOutputSymbols, PinotDataBufferMemoryManager memoryManager) {
 
+    _bytesList = new byte[bucketCount][][];
+    offset = 0;
+    currentBucket = 0;
+
+    _bytesList[currentBucket] = new byte[10000][];
+
     _filler = in.get();
     _annotation = in.get();
     final byte hgtl = in.get();
-
-    _mutableBytesStore = new OffHeapMutableBytesStore(memoryManager, "ImmutableFST");
 
     /*
      * Determine if the automaton was compiled with NUMBERS. If so, modify
@@ -197,11 +205,28 @@ public final class ImmutableFST extends FST {
   }
 
   private void readRemaining(ByteBuffer in) {
-    byte[] buffer = new byte[PER_BUFFER_SIZE];
     while (in.hasRemaining()) {
+
+      if (offset == PER_BUCKET_SIZE) {
+        // resize
+        currentBucket = currentBucket + 1;
+        _bytesList[currentBucket] = new byte[PER_BUCKET_SIZE][];
+        offset = 0;
+        System.out.println("YES YES " + currentBucket + " " + offset);
+      } else {
+        System.out.println("NO NO NO " + currentBucket + " " + offset);
+      }
+
       int dataSize = in.remaining() > PER_BUFFER_SIZE ? PER_BUFFER_SIZE : in.remaining();
+      byte[] buffer = new byte[dataSize];
       in.get(buffer, 0, dataSize);
-      _mutableBytesStore.add(buffer);
+      try {
+        _bytesList[currentBucket][offset] = buffer;
+      } catch (ArrayIndexOutOfBoundsException e) {
+        System.out.println("currentBucket " + currentBucket + " offset " + offset);
+        throw e;
+      }
+      offset++;
     }
   }
 
@@ -345,7 +370,7 @@ public final class ImmutableFST extends FST {
       int actualArcOffset = seek >= PER_BUFFER_SIZE ? seek / PER_BUFFER_SIZE : 0;
       int bufferOffset = seek >= PER_BUFFER_SIZE ? seek - ((actualArcOffset) * PER_BUFFER_SIZE) : seek;
 
-      byte[] inputData = _mutableBytesStore.get(actualArcOffset);
+      byte[] inputData = _bytesList[getByteBucketOffset(actualArcOffset)][actualArcOffset];
 
       r = r << 8 | (inputData[bufferOffset] & 0xff);
     }
@@ -379,15 +404,51 @@ public final class ImmutableFST extends FST {
     int actualArcOffset = seek >= PER_BUFFER_SIZE ? seek / PER_BUFFER_SIZE : 0;
     int bufferOffset = seek >= PER_BUFFER_SIZE ? seek - ((actualArcOffset) * PER_BUFFER_SIZE) : seek;
 
-    byte[] retVal = _mutableBytesStore.get((actualArcOffset));
+    int offsetValue = getByteBucketOffset(actualArcOffset);
+    System.out.println("offset value is " + offsetValue);
+
+    if (_bytesList[offsetValue] == null) {
+      System.out.println("IS NULL " + offsetValue + " " + actualArcOffset);
+    }
+
+    byte[] retVal = _bytesList[getByteBucketOffset(actualArcOffset)][actualArcOffset];
 
     int target = bufferOffset + offset;
 
     if (target >= PER_BUFFER_SIZE) {
-      retVal = _mutableBytesStore.get(actualArcOffset + 1);
+      retVal = _bytesList[getByteBucketOffset(actualArcOffset + 1)][actualArcOffset + 1];
       target = target - PER_BUFFER_SIZE;
     }
 
     return retVal[target];
+  }
+
+  private int getByteBucketOffset(final int value) {
+    return value % PER_BUCKET_SIZE;
+  }
+
+  private int getByteBucketOffset2(final int value) {
+    int count = 0;
+    int mutableValue = value;
+
+    while (value > PER_BUCKET_SIZE) {
+      mutableValue = mutableValue - PER_BUCKET_SIZE;
+      count++;
+    }
+
+    return count;
+  }
+
+  private void allocateNewBucket() {
+    if (_bytesList[currentBucket].length < PER_BUCKET_SIZE) {
+      return;
+    }
+
+    if (currentBucket == bucketCount) {
+      //TODO: resize
+      throw new IllegalStateException("Bucket count exceeded");
+    }
+
+    _bytesList[currentBucket++] = new byte[PER_BUCKET_SIZE][];
   }
 }
