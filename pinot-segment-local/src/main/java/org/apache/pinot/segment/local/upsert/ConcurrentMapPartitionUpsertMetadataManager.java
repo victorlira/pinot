@@ -21,7 +21,6 @@ package org.apache.pinot.segment.local.upsert;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -318,7 +317,6 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
           .averageKeySize(1000)
           .entries(10_000_000)
           .createPersistedTo(new File("my-map"));
-
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }

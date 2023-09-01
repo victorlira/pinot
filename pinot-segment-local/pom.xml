@@ -98,6 +98,17 @@
       <groupId>net.openhft</groupId>
       <artifactId>chronicle-map</artifactId>
       <version>3.20.84</version>
+      <exclusions>
+      <exclusion>
+        <groupId>net.openhft</groupId>
+        <artifactId>chronicle-bytes</artifactId>
+      </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>net.openhft</groupId>
+      <artifactId>chronicle-bytes</artifactId>
+      <version>2.24ea17</version>
     </dependency>
     <dependency>
       <groupId>com.tdunning</groupId>
