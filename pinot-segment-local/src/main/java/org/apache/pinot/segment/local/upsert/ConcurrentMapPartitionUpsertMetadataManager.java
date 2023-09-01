@@ -20,13 +20,18 @@ package org.apache.pinot.segment.local.upsert;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
+import net.openhft.chronicle.bytes.BytesMarshallable;
+import net.openhft.chronicle.map.ChronicleMap;
 import org.apache.pinot.common.metrics.ServerGauge;
 import org.apache.pinot.common.metrics.ServerMeter;
 import org.apache.pinot.common.metrics.ServerMetrics;
@@ -51,7 +56,7 @@ import org.roaringbitmap.buffer.MutableRoaringBitmap;
 public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUpsertMetadataManager {
 
   @VisibleForTesting
-  final ConcurrentHashMap<Object, RecordLocation> _primaryKeyToRecordLocationMap = new ConcurrentHashMap<>();
+  final Map<Object, RecordLocation> _primaryKeyToRecordLocationMap = createFileMapped();
 
   public ConcurrentMapPartitionUpsertMetadataManager(String tableNameWithType, int partitionId,
       List<String> primaryKeyColumns, List<String> comparisonColumns, @Nullable String deleteRecordColumn,
@@ -304,8 +309,23 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
     return record;
   }
 
+  private static Map<Object, RecordLocation> createFileMapped() {
+    try {
+      return ChronicleMap
+          .of(Object.class, RecordLocation.class)
+          //TODO: atri -- Estimate the actual size. Note to tester -- play with larger values here
+          .averageValueSize(8000)
+          .averageKeySize(1000)
+          .entries(10_000_000)
+          .createPersistedTo(new File("my-map"));
+
+    } catch (IOException ioe) {
+      throw new RuntimeException(ioe);
+    }
+  }
+
   @VisibleForTesting
-  static class RecordLocation {
+  static class RecordLocation implements BytesMarshallable {
     private final IndexSegment _segment;
     private final int _docId;
     private final Comparable _comparisonValue;
