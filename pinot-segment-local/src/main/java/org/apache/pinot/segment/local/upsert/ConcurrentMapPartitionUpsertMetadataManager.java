@@ -51,7 +51,8 @@ import org.roaringbitmap.buffer.MutableRoaringBitmap;
 public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUpsertMetadataManager {
 
   @VisibleForTesting
-  final ConcurrentHashMap<Object, RecordLocation> _primaryKeyToRecordLocationMap = new ConcurrentHashMap<>();
+  final IntelligentKVStore _primaryKeyToRecordLocationMap =
+      new IntelligentKVStore(new ConcurrentHashMap<>());
 
   public ConcurrentMapPartitionUpsertMetadataManager(String tableNameWithType, int partitionId,
       List<String> primaryKeyColumns, List<String> comparisonColumns, @Nullable String deleteRecordColumn,

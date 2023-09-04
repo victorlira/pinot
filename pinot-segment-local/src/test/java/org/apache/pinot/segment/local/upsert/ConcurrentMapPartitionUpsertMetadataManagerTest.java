@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import jnr.ffi.annotations.In;
 import org.apache.commons.io.FileUtils;
 import org.apache.pinot.common.metrics.ServerMetrics;
 import org.apache.pinot.common.utils.LLCSegmentName;
@@ -115,7 +116,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList(comparisonColumn), null, hashFunction, null, false, 0, INDEX_DIR,
             mock(ServerMetrics.class));
-    Map<Object, RecordLocation> recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
     Set<IndexSegment> trackedSegments = upsertMetadataManager._trackedSegments;
 
     // Add the first segment
@@ -278,7 +279,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList(comparisonColumn), deleteRecordColumn, hashFunction, null, false, 0, INDEX_DIR,
             mock(ServerMetrics.class));
-    Map<Object, RecordLocation> recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
     Set<IndexSegment> trackedSegments = upsertMetadataManager._trackedSegments;
 
     // Add the first segment
@@ -536,7 +537,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     return new PrimaryKey(new Object[]{value});
   }
 
-  private static void checkRecordLocation(Map<Object, RecordLocation> recordLocationMap, int keyValue,
+  private static void checkRecordLocation(IntelligentKVStore recordLocationMap, int keyValue,
       IndexSegment segment, int docId, int comparisonValue, HashFunction hashFunction) {
     RecordLocation recordLocation =
         recordLocationMap.get(HashUtils.hashPrimaryKey(makePrimaryKey(keyValue), hashFunction));
@@ -561,7 +562,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList(comparisonColumn), null, hashFunction, null, false, 0, INDEX_DIR,
             mock(ServerMetrics.class));
-    Map<Object, RecordLocation> recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add the first segment
     // segment1: 0 -> {0, 100}, 1 -> {1, 120}, 2 -> {2, 100}
@@ -652,7 +653,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList(comparisonColumn), null, hashFunction, null, false, 0, INDEX_DIR,
             mock(ServerMetrics.class));
-    Map<Object, RecordLocation> recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add the first segment
     // segment1: 0 -> {0, 100}, 1 -> {1, 120}, 2 -> {2, 100}
@@ -708,7 +709,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList(comparisonColumn), deleteColumn, hashFunction, null, false, 0, INDEX_DIR,
             mock(ServerMetrics.class));
-    Map<Object, RecordLocation> recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // queryableDocIds is same as validDocIds in the absence of delete markers
     // Add the first segment
@@ -809,7 +810,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, false, 30, tableDir,
             mock(ServerMetrics.class));
-    Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> recordLocationMap =
+    IntelligentKVStore recordLocationMap =
         upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: earlierComparisonValue
@@ -870,7 +871,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, true, 30, tableDir,
             mock(ServerMetrics.class));
-    Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> recordLocationMap =
+    IntelligentKVStore recordLocationMap =
         upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: 80
@@ -936,7 +937,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, true, 30, tableDir,
             mock(ServerMetrics.class));
-    Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> recordLocationMap =
+    IntelligentKVStore recordLocationMap =
         upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: comparisonValue
@@ -975,7 +976,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
   }
 
   // Add the following utils function since the Comparison column is a long value for TTL enabled upsert table.
-  private static void checkRecordLocationForTTL(Map<Object, RecordLocation> recordLocationMap, int keyValue,
+  private static void checkRecordLocationForTTL(IntelligentKVStore recordLocationMap, int keyValue,
       IndexSegment segment, int docId, Number comparisonValue, HashFunction hashFunction) {
     RecordLocation recordLocation =
         recordLocationMap.get(HashUtils.hashPrimaryKey(makePrimaryKey(keyValue), hashFunction));
