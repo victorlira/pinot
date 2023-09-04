@@ -64,7 +64,7 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
 
   @Override
   protected long getNumPrimaryKeys() {
-    return _primaryKeyToRecordLocationMap.size();
+    return _primaryKeyToRecordLocationMap.sizeOfPrimaryStore();
   }
 
   @Override
@@ -237,6 +237,18 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
   }
 
   @Override
+  public void transferKeysBetweenPrimaryAndSecondaryStorage() {
+    //TODO: Declare own TTL
+    double threshold = _largestSeenComparisonValue - _metadataTTL;
+    _primaryKeyToRecordLocationMap.forEach((primaryKey, recordLocation) -> {
+      if (((Number) recordLocation.getComparisonValue()).doubleValue() < threshold) {
+        _primaryKeyToRecordLocationMap.transferKey(primaryKey);
+      }
+    });
+    persistWatermark(_largestSeenComparisonValue);
+  }
+
+  @Override
   protected void doAddRecord(MutableSegment segment, RecordInfo recordInfo) {
     ThreadSafeMutableRoaringBitmap validDocIds = Objects.requireNonNull(segment.getValidDocIds());
     ThreadSafeMutableRoaringBitmap queryableDocIds = segment.getQueryableDocIds();
@@ -279,7 +291,7 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
 
     // Update metrics
     _serverMetrics.setValueOfPartitionGauge(_tableNameWithType, _partitionId, ServerGauge.UPSERT_PRIMARY_KEYS_COUNT,
-        _primaryKeyToRecordLocationMap.size());
+        _primaryKeyToRecordLocationMap.sizeOfPrimaryStore());
   }
 
   @Override

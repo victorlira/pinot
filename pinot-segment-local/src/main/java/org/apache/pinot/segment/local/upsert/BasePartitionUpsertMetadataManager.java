@@ -692,6 +692,24 @@ public abstract class BasePartitionUpsertMetadataManager implements PartitionUps
     }
   }
 
+  @Override
+  public void transferKeysBetweenPrimaryAndSecondaryStorage() {
+    if (_metadataTTL <= 0) {
+      return;
+    }
+    if (_stopped) {
+      _logger.info("Skip transferring cold primary keys because metadata manager is already stopped");
+      return;
+    }
+
+    startOperation();
+    try {
+      transferKeysBetweenPrimaryAndSecondaryStorage();
+    } finally {
+      finishOperation();
+    }
+  }
+
   /**
    * Removes all primary keys that have comparison value smaller than (largestSeenComparisonValue - TTL).
    */

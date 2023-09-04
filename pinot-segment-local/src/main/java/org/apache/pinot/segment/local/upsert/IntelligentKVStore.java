@@ -18,8 +18,12 @@ public class IntelligentKVStore {
     _offheapStore = offheapStore;
   }
 
-  public int size() {
-    return _primaryKeyToRecordLocationMap.size() + _offheapStore.size();
+  public int sizeOfPrimaryStore() {
+    return _primaryKeyToRecordLocationMap.size();
+  }
+
+  public int sizeOfSecondaryStore() {
+    return _offheapStore.size();
   }
 
   public boolean isEmpty() {
@@ -51,7 +55,7 @@ public class IntelligentKVStore {
     }
 
     // We do a double put
-    _primaryKeyToRecordLocationMap.putIfAbsent(key, (ConcurrentMapPartitionUpsertMetadataManager.RecordLocation) value);
+    _primaryKeyToRecordLocationMap.put(key, (ConcurrentMapPartitionUpsertMetadataManager.RecordLocation) value);
     _offheapStore.put(key, (ConcurrentMapPartitionUpsertMetadataManager.RecordLocation) value);
 
     return value;
@@ -78,11 +82,18 @@ public class IntelligentKVStore {
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
     // TODO: Concurrency checks
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation primaryStoreLocation = null;
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation offHeapStoreLocation = null;
+
     if (_primaryKeyToRecordLocationMap.containsKey(key)) {
-      return computeIfPresentInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
-    } else {
-      return computeIfPresentInternal(_offheapStore, key, remappingFunction);
+      primaryStoreLocation = computeIfPresentInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
     }
+
+    if (_offheapStore.containsKey(key)) {
+      offHeapStoreLocation = computeIfPresentInternal(_offheapStore, key, remappingFunction);
+    }
+
+    return comparePrimaryAndOffheapValues(primaryStoreLocation, offHeapStoreLocation);
   }
 
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresentInternal(
@@ -108,11 +119,14 @@ public class IntelligentKVStore {
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
 
-    if (_primaryKeyToRecordLocationMap.containsKey(key)) {
-      return computeInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
-    } else {
-      return computeInternal(_offheapStore, key, remappingFunction);
-    }
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation primaryStoreLocation = null;
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation offHeapStoreLocation = null;
+
+      primaryStoreLocation = computeInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
+
+      offHeapStoreLocation = computeInternal(_offheapStore, key, remappingFunction);
+
+    return comparePrimaryAndOffheapValues(primaryStoreLocation, offHeapStoreLocation);
   }
 
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeInternal(
@@ -139,9 +153,20 @@ public class IntelligentKVStore {
     }
   }
 
-  void forEach(BiConsumer<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> action) {
-    //TODO: Extend this to offheap store as well
+  void forEachOnPrimaryDataStore(
+      BiConsumer<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> action) {
     forEachInternal(_primaryKeyToRecordLocationMap, action);
+  }
+
+  void forEachOnOffheapDataStore(
+      BiConsumer<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> action) {
+    forEachInternal(_offheapStore, action);
+  }
+
+  void forEach(BiConsumer<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> action) {
+    //TODO: Make these two operations concurrent?
+    forEachOnPrimaryDataStore(action);
+    forEachOnOffheapDataStore(action);
   }
 
   void forEachInternal(Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> map,
@@ -151,14 +176,39 @@ public class IntelligentKVStore {
     }
   }
 
-  boolean remove(Object key,
-      Object value) {
-
-    if (_primaryKeyToRecordLocationMap.containsKey(key)) {
-      return removeInternal(_primaryKeyToRecordLocationMap, key, value);
+  ConcurrentMapPartitionUpsertMetadataManager.RecordLocation comparePrimaryAndOffheapValues(
+      ConcurrentMapPartitionUpsertMetadataManager.RecordLocation primaryStoreLocation,
+      ConcurrentMapPartitionUpsertMetadataManager.RecordLocation offHeapStoreLocation) {
+    if (primaryStoreLocation == null) {
+      return offHeapStoreLocation;
     }
 
-    return removeInternal(_offheapStore, key, value);
+    if (offHeapStoreLocation == null) {
+      return primaryStoreLocation;
+    }
+
+    // If both are null, we would have handled it in the above conditions
+
+    if (primaryStoreLocation.getComparisonValue().compareTo(offHeapStoreLocation.getComparisonValue()) >= 0) {
+      return primaryStoreLocation;
+    }
+
+    return offHeapStoreLocation;
+  }
+
+  boolean remove(Object key, Object value) {
+    boolean isRemoved = false;
+    if (_primaryKeyToRecordLocationMap.containsKey(key)) {
+      removeInternal(_primaryKeyToRecordLocationMap, key, value);
+      isRemoved = true;
+    }
+
+    if (_offheapStore.containsKey(key)) {
+      removeInternal(_offheapStore, key, value);
+      isRemoved = true;
+    }
+
+    return isRemoved;
   }
 
   boolean removeInternal(Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> map, Object key,
@@ -168,6 +218,49 @@ public class IntelligentKVStore {
       return true;
     } else {
       return false;
+    }
+  }
+
+  /**
+   * Here is how this method works:
+   *
+   * If primary store does not contain the key, then no action needs to be taken
+   *
+   * If primary store contains the key, then the first thing we do is to perform
+   * the write on the offheap store. Once the offheap store write is completed,
+   * we do another read on the primary store and check if the previously known
+   * value for this key from the primary store is the same.
+   * If yes, then delete the value from the primary store.
+   * If not, then do nothing. This will ensure that hot keys are still kept
+   * in primary store and the key gets naturally removed from the primary
+   * store when it cools down.
+   *
+   * There is a caveat here -- if majority keys are hot, then we are essentially
+   * keeping a duplicate for the key on disk. The invariant
+   * here is that the update rate of keys after the set "hot" TTL goes down
+   * drastically.
+   *
+   * Once a key successfully moves to off heap only, all updates are percolated
+   * directly to the off heap store.
+   * @param key
+   */
+  void transferKey(Object key) {
+
+    if (!(_primaryKeyToRecordLocationMap.containsKey(key))) {
+      return;
+    }
+
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation currentRecordLocation =
+        _primaryKeyToRecordLocationMap.get(key);
+    _offheapStore.put(key, currentRecordLocation);
+
+    // If we got here, assuming that the write went through
+    if (_primaryKeyToRecordLocationMap.get(key).getComparisonValue()
+        .compareTo(currentRecordLocation.getComparisonValue()) == 0) {
+      // Equal values, no updates. Remove from the primary store
+      // NOTE: There is a race condition here that the value can change
+      // between the read above to here.
+      _primaryKeyToRecordLocationMap.remove(key);
     }
   }
 }

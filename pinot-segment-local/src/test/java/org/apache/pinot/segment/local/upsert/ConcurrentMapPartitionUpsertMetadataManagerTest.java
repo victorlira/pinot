@@ -24,11 +24,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
-import jnr.ffi.annotations.In;
 import org.apache.commons.io.FileUtils;
 import org.apache.pinot.common.metrics.ServerMetrics;
 import org.apache.pinot.common.utils.LLCSegmentName;
@@ -141,7 +139,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.addSegment(segment1, validDocIds1, null, recordInfoList1.iterator());
     trackedSegments.add(segment1);
     // segment1: 0 -> {5, 100}, 1 -> {4, 120}, 2 -> {2, 100}
-    assertEquals(recordLocationMap.size(), 3);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 3);
     checkRecordLocation(recordLocationMap, 0, segment1, 5, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment1, 2, 100, hashFunction);
@@ -171,7 +169,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
 
     // segment1: 1 -> {4, 120}
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -184,7 +182,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.addSegment(emptySegment);
     // segment1: 1 -> {4, 120}
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -201,7 +199,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // original segment1: 1 -> {4, 120} (not in the map)
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -214,7 +212,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(segment1);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -227,7 +225,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(emptySegment);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -239,7 +237,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(segment2);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80} (not in the map)
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 1);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 1);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     assertEquals(validDocIds2.getMutableRoaringBitmap().toArray(), new int[]{0, 2, 3});
     assertEquals(newValidDocIds1.getMutableRoaringBitmap().toArray(), new int[]{4});
@@ -251,7 +249,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // Remove new segment1, should be no-op
     upsertMetadataManager.removeSegment(newSegment1);
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 1);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 1);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     assertEquals(newValidDocIds1.getMutableRoaringBitmap().toArray(), new int[]{4});
     assertEquals(trackedSegments, Collections.singleton(newSegment1));
@@ -306,7 +304,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.addSegment(segment1, validDocIds1, queryableDocIds1, recordInfoList1.iterator());
     trackedSegments.add(segment1);
     // segment1: 0 -> {5, 100}, 1 -> {4, 120}, 2 -> {2, 100}
-    assertEquals(recordLocationMap.size(), 3);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 3);
     checkRecordLocation(recordLocationMap, 0, segment1, 5, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment1, 2, 100, hashFunction);
@@ -339,7 +337,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
 
     // segment1: 1 -> {4, 120}
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -354,7 +352,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.addSegment(emptySegment);
     // segment1: 1 -> {4, 120}
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, segment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -376,7 +374,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // original segment1: 1 -> {4, 120} (not in the map)
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -392,7 +390,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(segment1);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -408,7 +406,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(emptySegment);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80}
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocation(recordLocationMap, 0, segment2, 0, 100, hashFunction);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     checkRecordLocation(recordLocationMap, 2, segment2, 2, 120, hashFunction);
@@ -422,7 +420,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     upsertMetadataManager.removeSegment(segment2);
     // segment2: 0 -> {0, 100}, 2 -> {2, 120}, 3 -> {3, 80} (not in the map)
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 1);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 1);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     assertEquals(validDocIds2.getMutableRoaringBitmap().toArray(), new int[]{0, 2, 3});
     assertEquals(newValidDocIds1.getMutableRoaringBitmap().toArray(), new int[]{4});
@@ -436,7 +434,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // Remove new segment1, should be no-op
     upsertMetadataManager.removeSegment(newSegment1);
     // new segment1: 1 -> {4, 120}
-    assertEquals(recordLocationMap.size(), 1);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 1);
     checkRecordLocation(recordLocationMap, 1, newSegment1, 4, 120, hashFunction);
     assertEquals(newValidDocIds1.getMutableRoaringBitmap().toArray(), new int[]{4});
     assertEquals(trackedSegments, Collections.singleton(newSegment1));
@@ -836,7 +834,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // load segment1.
     upsertMetadataManager.addSegment(segment1, validDocIds1, null,
         getRecordInfoListForTTL(numRecords, primaryKeys, timestamps).iterator());
-    assertEquals(recordLocationMap.size(), 5);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
     checkRecordLocationForTTL(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE);
@@ -845,7 +843,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: largerComparisonValue
     upsertMetadataManager.addRecord(segment0, new RecordInfo(makePrimaryKey(10), 0, largerComparisonValue, false));
-    assertEquals(recordLocationMap.size(), 5);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
     checkRecordLocationForTTL(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE);
@@ -854,7 +852,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
 
     // records before (largest seen timestamp - TTL) are expired and removed from upsertMetadata.
     upsertMetadataManager.removeExpiredPrimaryKeys();
-    assertEquals(recordLocationMap.size(), 4);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
     checkRecordLocationForTTL(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE);
@@ -897,7 +895,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // load segment1 with segmentEndTime: 80, largest seen timestamp: 80. the segment will be loaded.
     upsertMetadataManager.addSegment(segment1, validDocIds1, null,
         getRecordInfoListForTTL(numRecords, primaryKeys, timestamps).iterator());
-    assertEquals(recordLocationMap.size(), 5);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
     checkRecordLocationForTTL(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE);
@@ -908,7 +906,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     // Add record to update largestSeenTimestamp, largest seen timestamp: 120
     upsertMetadataManager.addRecord(segment0, new RecordInfo(makePrimaryKey(0), 0, new Double(120), false));
     assertEquals(validDocIds1.getMutableRoaringBitmap().toArray(), new int[]{1, 2, 3});
-    assertEquals(recordLocationMap.size(), 5);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
     checkRecordLocationForTTL(recordLocationMap, 0, segment0, 0, 120, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE);
     checkRecordLocationForTTL(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE);
@@ -927,7 +925,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
             new Double(80), validDocIdsSnapshot2);
     upsertMetadataManager.addSegment(segment2);
     // out of ttl segment should not be added to recordLocationMap
-    assertEquals(recordLocationMap.size(), 5);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
   }
 
   private void verifyAddSegmentForTTL(Comparable comparisonValue) {
@@ -961,7 +959,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
 
     // load segment1.
     upsertMetadataManager.addSegment(segment1);
-    assertEquals(recordLocationMap.size(), 1);
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 1);
     checkRecordLocationForTTL(recordLocationMap, 10, segment0, 1, 80, HashFunction.NONE);
   }
 
