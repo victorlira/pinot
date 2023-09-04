@@ -107,6 +107,20 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     verifyAddOutOfTTLSegment();
   }
 
+  @Test
+  public void testUpsertMetadataTransferColdKeys() {
+    verifyTransferColdKeys(new Integer(80), new Integer(120));
+    verifyTransferColdKeys(new Float(80), new Float(120));
+    verifyTransferColdKeys(new Double(80), new Double(120));
+    verifyTransferColdKeys(new Long(80), new Long(120));
+    verifyPersistAndLoadWatermark();
+    verifyAddSegmentForTTL(new Integer(80));
+    verifyAddSegmentForTTL(new Float(80));
+    verifyAddSegmentForTTL(new Double(80));
+    verifyAddSegmentForTTL(new Long(80));
+    verifyAddOutOfTTLSegment();
+  }
+
   private void verifyAddReplaceRemoveSegment(HashFunction hashFunction, boolean enableSnapshot)
       throws IOException {
     String comparisonColumn = "timeCol";
@@ -535,8 +549,8 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     return new PrimaryKey(new Object[]{value});
   }
 
-  private static void checkRecordLocation(IntelligentKVStore recordLocationMap, int keyValue,
-      IndexSegment segment, int docId, int comparisonValue, HashFunction hashFunction) {
+  private static void checkRecordLocation(IntelligentKVStore recordLocationMap, int keyValue, IndexSegment segment,
+      int docId, int comparisonValue, HashFunction hashFunction) {
     RecordLocation recordLocation =
         recordLocationMap.get(HashUtils.hashPrimaryKey(makePrimaryKey(keyValue), hashFunction));
     assertNotNull(recordLocation);
@@ -808,8 +822,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, false, 30, tableDir,
             mock(ServerMetrics.class));
-    IntelligentKVStore recordLocationMap =
-        upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: earlierComparisonValue
     ThreadSafeMutableRoaringBitmap validDocIds0 = new ThreadSafeMutableRoaringBitmap();
@@ -862,6 +875,63 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
     assertEquals(validDocIds1.getMutableRoaringBitmap().toArray(), new int[]{0, 1, 2, 3});
   }
 
+  private void verifyTransferColdKeys(Comparable earlierComparisonValue, Comparable largerComparisonValue) {
+    File tableDir = new File(INDEX_DIR, REALTIME_TABLE_NAME);
+
+    ConcurrentMapPartitionUpsertMetadataManager upsertMetadataManager =
+        new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
+            Collections.singletonList("timeCol"), null, HashFunction.NONE, null, false, 30, tableDir,
+            mock(ServerMetrics.class));
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
+
+    // Add record to update largestSeenTimestamp, largest seen timestamp: earlierComparisonValue
+    ThreadSafeMutableRoaringBitmap validDocIds0 = new ThreadSafeMutableRoaringBitmap();
+    MutableSegment segment0 = mockMutableSegment(1, validDocIds0, null);
+    upsertMetadataManager.addRecord(segment0, new RecordInfo(makePrimaryKey(10), 1, earlierComparisonValue, false));
+    checkRecordLocationForTTL(recordLocationMap, 10, segment0, 1, 80, HashFunction.NONE);
+
+    // Add a segment with segmentEndTime = earlierComparisonValue, so it will not be skipped
+    int numRecords = 4;
+    int[] primaryKeys = new int[]{0, 1, 2, 3};
+    Number[] timestamps = new Number[]{100, 100, 120, 80};
+    ThreadSafeMutableRoaringBitmap validDocIds1 = new ThreadSafeMutableRoaringBitmap();
+    List<PrimaryKey> primaryKeys1 = getPrimaryKeyList(numRecords, primaryKeys);
+    ImmutableSegmentImpl segment1 =
+        mockImmutableSegmentWithEndTime(1, validDocIds1, null, primaryKeys1, Collections.singletonList("timeCol"),
+            earlierComparisonValue, null);
+
+    int[] docIds1 = new int[]{0, 1, 2, 3};
+    MutableRoaringBitmap validDocIdsSnapshot1 = new MutableRoaringBitmap();
+    validDocIdsSnapshot1.add(docIds1);
+
+    // load segment1.
+    upsertMetadataManager.addSegment(segment1, validDocIds1, null,
+        getRecordInfoListForTTL(numRecords, primaryKeys, timestamps).iterator());
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 3, segment1, 3, 80, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 10, segment0, 1, 80, HashFunction.NONE, false);
+
+    // Add record to update largestSeenTimestamp, largest seen timestamp: largerComparisonValue
+    upsertMetadataManager.addRecord(segment0, new RecordInfo(makePrimaryKey(10), 0, largerComparisonValue, false));
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 5);
+
+    // records before (largest seen timestamp - TTL) are expired and removed from upsertMetadata.
+    upsertMetadataManager.transferKeysBetweenPrimaryAndSecondaryStorage();
+    assertEquals(recordLocationMap.sizeOfPrimaryStore(), 4);
+    assertEquals(recordLocationMap.sizeOfSecondaryStore(), 1);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 0, segment1, 0, 100, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 1, segment1, 1, 100, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 2, segment1, 2, 120, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 10, segment0, 0, 120, HashFunction.NONE, false);
+    checkRecordLocationForIntelligentKVStore(recordLocationMap, 3, segment1, 3, 80, HashFunction.NONE, true);
+
+    // ValidDocIds for out-of-ttl records should not be removed.
+    assertEquals(validDocIds1.getMutableRoaringBitmap().toArray(), new int[]{0, 1, 2, 3});
+  }
+
   private void verifyAddOutOfTTLSegment() {
     File tableDir = new File(INDEX_DIR, REALTIME_TABLE_NAME);
 
@@ -869,8 +939,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, true, 30, tableDir,
             mock(ServerMetrics.class));
-    IntelligentKVStore recordLocationMap =
-        upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: 80
     ThreadSafeMutableRoaringBitmap validDocIds0 = new ThreadSafeMutableRoaringBitmap();
@@ -935,8 +1004,7 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
         new ConcurrentMapPartitionUpsertMetadataManager(REALTIME_TABLE_NAME, 0, Collections.singletonList("pk"),
             Collections.singletonList("timeCol"), null, HashFunction.NONE, null, true, 30, tableDir,
             mock(ServerMetrics.class));
-    IntelligentKVStore recordLocationMap =
-        upsertMetadataManager._primaryKeyToRecordLocationMap;
+    IntelligentKVStore recordLocationMap = upsertMetadataManager._primaryKeyToRecordLocationMap;
 
     // Add record to update largestSeenTimestamp, largest seen timestamp: comparisonValue
     ThreadSafeMutableRoaringBitmap validDocIds0 = new ThreadSafeMutableRoaringBitmap();
@@ -971,6 +1039,15 @@ public class ConcurrentMapPartitionUpsertMetadataManagerTest {
           new RecordInfo(makePrimaryKey(primaryKeys[i]), i, new Double(timestamps[i].doubleValue()), false));
     }
     return recordInfoList;
+  }
+
+  private static void checkRecordLocationForIntelligentKVStore(IntelligentKVStore recordLocationMap, int keyValue,
+      IndexSegment segment, int docId, Number comparisonValue, HashFunction hashFunction, boolean isOffheap) {
+    checkRecordLocationForTTL(recordLocationMap, keyValue, segment, docId, comparisonValue, hashFunction);
+
+    RecordLocation recordLocation =
+        recordLocationMap.get(HashUtils.hashPrimaryKey(makePrimaryKey(keyValue), hashFunction));
+    assertEquals(recordLocation.getIsOffHeap(), isOffheap);
   }
 
   // Add the following utils function since the Comparison column is a long value for TTL enabled upsert table.

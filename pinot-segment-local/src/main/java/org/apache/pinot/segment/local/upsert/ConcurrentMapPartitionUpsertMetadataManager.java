@@ -322,11 +322,13 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
     private final IndexSegment _segment;
     private final int _docId;
     private final Comparable _comparisonValue;
+    private boolean _isOffHeap;
 
     public RecordLocation(IndexSegment indexSegment, int docId, Comparable comparisonValue) {
       _segment = indexSegment;
       _docId = docId;
       _comparisonValue = comparisonValue;
+      _isOffHeap = false;
     }
 
     public IndexSegment getSegment() {
@@ -339,6 +341,14 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
 
     public Comparable getComparisonValue() {
       return _comparisonValue;
+    }
+
+    public void setIsOffHeap(boolean isOffHeap) {
+      _isOffHeap = isOffHeap;
+    }
+
+    public boolean getIsOffHeap() {
+      return _isOffHeap;
     }
   }
 }

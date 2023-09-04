@@ -81,19 +81,7 @@ public class IntelligentKVStore {
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresent(Object key,
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
-    // TODO: Concurrency checks
-    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation primaryStoreLocation = null;
-    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation offHeapStoreLocation = null;
-
-    if (_primaryKeyToRecordLocationMap.containsKey(key)) {
-      primaryStoreLocation = computeIfPresentInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
-    }
-
-    if (_offheapStore.containsKey(key)) {
-      offHeapStoreLocation = computeIfPresentInternal(_offheapStore, key, remappingFunction);
-    }
-
-    return comparePrimaryAndOffheapValues(primaryStoreLocation, offHeapStoreLocation);
+    return computeIfPresentInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
   }
 
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresentInternal(
@@ -115,18 +103,23 @@ public class IntelligentKVStore {
     return null;
   }
 
+  /**
+   * Here is how this method works:
+   *
+   * All updates are sent to the primary store. Offheap store is updated only periodically when
+   * keys are transferred.
+   *
+   * The idea is that the majority of offheap keys should not be updated regularly - hence they
+   * should be restricted to off heap only. If an off heap key is updated, it will become "hot"
+   * until it expires again (i.e. breaches the update TTL). For that duration, the key will
+   * have a duplicate in the offheap store -- but it should be fine as long as the number of
+   * updated keys that are cold are significantly lower than the total count.
+   */
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation compute(Object key,
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
 
-    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation primaryStoreLocation = null;
-    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation offHeapStoreLocation = null;
-
-      primaryStoreLocation = computeInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
-
-      offHeapStoreLocation = computeInternal(_offheapStore, key, remappingFunction);
-
-    return comparePrimaryAndOffheapValues(primaryStoreLocation, offHeapStoreLocation);
+    return computeInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
   }
 
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeInternal(
@@ -252,6 +245,7 @@ public class IntelligentKVStore {
 
     ConcurrentMapPartitionUpsertMetadataManager.RecordLocation currentRecordLocation =
         _primaryKeyToRecordLocationMap.get(key);
+    currentRecordLocation.setIsOffHeap(true);
     _offheapStore.put(key, currentRecordLocation);
 
     // If we got here, assuming that the write went through
