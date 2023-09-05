@@ -704,7 +704,7 @@ public abstract class BasePartitionUpsertMetadataManager implements PartitionUps
 
     startOperation();
     try {
-      transferKeysBetweenPrimaryAndSecondaryStorage();
+      doTransferColdKeysToOffheapStorage();
     } finally {
       finishOperation();
     }
@@ -714,6 +714,8 @@ public abstract class BasePartitionUpsertMetadataManager implements PartitionUps
    * Removes all primary keys that have comparison value smaller than (largestSeenComparisonValue - TTL).
    */
   protected abstract void doRemoveExpiredPrimaryKeys();
+
+  protected abstract void doTransferColdKeysToOffheapStorage();
 
   @Override
   public void stop() {

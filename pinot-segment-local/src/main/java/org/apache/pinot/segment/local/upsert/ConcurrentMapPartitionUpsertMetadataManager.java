@@ -237,7 +237,7 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
   }
 
   @Override
-  public void transferKeysBetweenPrimaryAndSecondaryStorage() {
+  public void doTransferColdKeysToOffheapStorage() {
     //TODO: Declare own TTL
     double threshold = _largestSeenComparisonValue - _metadataTTL;
     _primaryKeyToRecordLocationMap.forEach((primaryKey, recordLocation) -> {
