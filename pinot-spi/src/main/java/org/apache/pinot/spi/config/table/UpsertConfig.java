@@ -63,6 +63,10 @@ public class UpsertConfig extends BaseJsonConfig {
   @JsonPropertyDescription("Whether to use TTL for upsert metadata cleanup, it uses the same unit as comparison col")
   private double _metadataTTL;
 
+  @JsonPropertyDescription("Whether to use TTL for cold key transfer to offheap storage, it uses the same unit as "
+      + "comparison col")
+  private double _offHeapStorageTTL;
+
   @JsonPropertyDescription("Whether to preload segments for fast upsert metadata recovery")
   private boolean _enablePreload;
 
@@ -116,6 +120,10 @@ public class UpsertConfig extends BaseJsonConfig {
 
   public double getMetadataTTL() {
     return _metadataTTL;
+  }
+
+  public double getOffHeapStorageTTL() {
+    return _offHeapStorageTTL;
   }
 
   public boolean isEnablePreload() {
@@ -189,6 +197,11 @@ public class UpsertConfig extends BaseJsonConfig {
   public void setMetadataTTL(double metadataTTL) {
     _metadataTTL = metadataTTL;
   }
+
+  public void setOffHeapStorageTTL(double offHeapStorageTTL) {
+    _offHeapStorageTTL = offHeapStorageTTL;
+  }
+
 
   public void setEnablePreload(boolean enablePreload) {
     _enablePreload = enablePreload;

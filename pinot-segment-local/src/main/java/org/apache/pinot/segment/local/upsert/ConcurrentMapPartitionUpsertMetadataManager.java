@@ -57,9 +57,9 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
   public ConcurrentMapPartitionUpsertMetadataManager(String tableNameWithType, int partitionId,
       List<String> primaryKeyColumns, List<String> comparisonColumns, @Nullable String deleteRecordColumn,
       HashFunction hashFunction, @Nullable PartialUpsertHandler partialUpsertHandler, boolean enableSnapshot,
-      double metadataTTL, File tableIndexDir, ServerMetrics serverMetrics) {
+      double metadataTTL, double offheapStorageTTL, File tableIndexDir, ServerMetrics serverMetrics) {
     super(tableNameWithType, partitionId, primaryKeyColumns, comparisonColumns, deleteRecordColumn, hashFunction,
-        partialUpsertHandler, enableSnapshot, metadataTTL, tableIndexDir, serverMetrics);
+        partialUpsertHandler, enableSnapshot, metadataTTL, offheapStorageTTL, tableIndexDir, serverMetrics);
   }
 
   @Override
@@ -239,7 +239,7 @@ public class ConcurrentMapPartitionUpsertMetadataManager extends BasePartitionUp
   @Override
   public void doTransferColdKeysToOffheapStorage() {
     //TODO: Declare own TTL
-    double threshold = _largestSeenComparisonValue - _metadataTTL;
+    double threshold = _largestSeenComparisonValue - _offheapStorageTTL;
     _primaryKeyToRecordLocationMap.forEach((primaryKey, recordLocation) -> {
       if (((Number) recordLocation.getComparisonValue()).doubleValue() < threshold) {
         _primaryKeyToRecordLocationMap.transferKey(primaryKey);
