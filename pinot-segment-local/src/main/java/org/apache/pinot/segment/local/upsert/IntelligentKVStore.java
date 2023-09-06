@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import javax.annotation.Nullable;
 
 
 /**
@@ -84,26 +85,49 @@ public class IntelligentKVStore {
   ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresent(Object key,
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
-    return computeIfPresentInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
+    return computeIfPresentInternal(key, remappingFunction);
   }
 
-  ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresentInternal(
-      Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> map, Object key,
+  ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeIfPresentInternal(Object key,
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
-    if (map.get(key) != null) {
-      ConcurrentMapPartitionUpsertMetadataManager.RecordLocation oldValue = map.get(key);
-      ConcurrentMapPartitionUpsertMetadataManager.RecordLocation newValue = remappingFunction.apply(key, oldValue);
-      if (newValue != null) {
-        map.put(key, newValue);
-        return newValue;
-      } else {
-        map.remove(key);
-        return null;
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation oldValue = _primaryKeyToRecordLocationMap.get(key);
+    boolean isOffheapOnly = false;
+
+    if (oldValue == null) {
+      oldValue = _offheapStore.get(key);
+
+      if (oldValue != null) {
+        isOffheapOnly = true;
       }
     }
 
+    if (oldValue != null) {
+      ConcurrentMapPartitionUpsertMetadataManager.RecordLocation newValue = remappingFunction.apply(key, oldValue);
+      return processUpdateThroughCompute(key, isOffheapOnly, newValue);
+    }
+
     return null;
+  }
+
+  @Nullable
+  private ConcurrentMapPartitionUpsertMetadataManager.RecordLocation processUpdateThroughCompute(Object key,
+      boolean isOffheapOnly, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation newValue) {
+    if (newValue != null) {
+      _primaryKeyToRecordLocationMap.put(key, newValue);
+      return newValue;
+    } else {
+      if (isOffheapOnly) {
+        _offheapStore.remove(key);
+      } else {
+        _primaryKeyToRecordLocationMap.remove(key);
+
+        if (_offheapStore.containsKey(key)) {
+          _offheapStore.remove(key);
+        }
+      }
+      return null;
+    }
   }
 
   /**
@@ -122,28 +146,29 @@ public class IntelligentKVStore {
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
 
-    return computeInternal(_primaryKeyToRecordLocationMap, key, remappingFunction);
+    return computeInternal(key, remappingFunction);
   }
 
-  ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeInternal(
-      Map<Object, ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> map, Object key,
+  ConcurrentMapPartitionUpsertMetadataManager.RecordLocation computeInternal(Object key,
       BiFunction<? super Object, ? super ConcurrentMapPartitionUpsertMetadataManager.RecordLocation, ?
           extends ConcurrentMapPartitionUpsertMetadataManager.RecordLocation> remappingFunction) {
-    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation oldValue = map.get(key);
+    ConcurrentMapPartitionUpsertMetadataManager.RecordLocation oldValue = _primaryKeyToRecordLocationMap.get(key);
+    boolean isOffheapKeyOnly = false;
+
+    if (oldValue == null) {
+      oldValue = _offheapStore.get(key);
+
+      if (oldValue != null) {
+        isOffheapKeyOnly = true;
+      }
+    }
+
     ConcurrentMapPartitionUpsertMetadataManager.RecordLocation newValue = remappingFunction.apply(key, oldValue);
     if (oldValue != null) {
-      if (newValue != null) {
-        map.put(key, newValue);
-
-        return newValue;
-      } else {
-        map.remove(key);
-
-        return null;
-      }
+      return processUpdateThroughCompute(key, isOffheapKeyOnly, newValue);
     } else {
       if (newValue != null) {
-        map.put(key, newValue);
+        _primaryKeyToRecordLocationMap.put(key, newValue);
       }
       return null;
     }
