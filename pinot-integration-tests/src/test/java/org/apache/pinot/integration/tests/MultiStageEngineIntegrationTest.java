@@ -450,7 +450,8 @@ public class MultiStageEngineIntegrationTest extends BaseClusterIntegrationTestS
     // invalid argument
     sqlQuery = "SELECT toBase64('hello!') FROM mytable";
     response = postQuery(sqlQuery);
-    assertTrue(response.get("exceptions").get(0).get("message").toString().contains("SQLParsingError"));
+    assertTrue(
+        response.get("exceptions").get(0).get("message").toString().contains("value hello! does not match type class"));
 
     // invalid argument
     sqlQuery = "SELECT fromBase64('hello!') FROM mytable";
