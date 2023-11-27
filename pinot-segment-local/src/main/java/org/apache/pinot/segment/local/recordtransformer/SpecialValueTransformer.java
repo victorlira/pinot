@@ -23,8 +23,6 @@ import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.readers.GenericRow;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -37,8 +35,6 @@ import org.slf4j.LoggerFactory;
  * {@link FieldSpec}.
  */
 public class SpecialValueTransformer implements RecordTransformer {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(NullValueTransformer.class);
   private final HashSet<String> _specialValuesKeySet = new HashSet<>();
 
   public SpecialValueTransformer(Schema schema) {
@@ -52,11 +48,9 @@ public class SpecialValueTransformer implements RecordTransformer {
 
   private Object transformNegativeZero(Object value) {
     if ((value instanceof Float) && (Float.floatToRawIntBits((float) value) == Float.floatToRawIntBits(-0.0f))) {
-      LOGGER.info("-0.0f value detected, converting to 0.0.");
       value = 0.0f;
     } else if ((value instanceof Double) && (Double.doubleToLongBits((double) value) == Double.doubleToLongBits(
         -0.0d))) {
-      LOGGER.info("-0.0d value detected, converting to 0.0.");
       value = 0.0d;
     }
     return value;
@@ -64,10 +58,8 @@ public class SpecialValueTransformer implements RecordTransformer {
 
   private Object transformNaN(Object value) {
     if ((value instanceof Float) && ((Float) value).isNaN()) {
-      LOGGER.info("Float.NaN detected, converting to default null.");
       value = FieldSpec.DEFAULT_DIMENSION_NULL_VALUE_OF_FLOAT;
     } else if ((value instanceof Double) && ((Double) value).isNaN()) {
-      LOGGER.info("Double.NaN detected, converting to default null.");
       value = FieldSpec.DEFAULT_DIMENSION_NULL_VALUE_OF_DOUBLE;
     }
     return value;
@@ -82,22 +74,20 @@ public class SpecialValueTransformer implements RecordTransformer {
   public GenericRow transform(GenericRow record) {
     for (String element : _specialValuesKeySet) {
       Object value = record.getValue(element);
-      if (value instanceof Object[]) {
-        // Multi-valued column.
-        Object[] values = (Object[]) value;
-        int numValues = values.length;
-        for (int i = 0; i < numValues; i++) {
-          if (values[i] != null) {
-            values[i] = transformNegativeZero(values[i]);
-            values[i] = transformNaN(values[i]);
-          }
-        }
-      } else {
+      if (value instanceof Float || value instanceof Double) {
         // Single-valued column.
         Object zeroTransformedValue = transformNegativeZero(value);
         Object nanTransformedValue = transformNaN(zeroTransformedValue);
         if (nanTransformedValue != value) {
           record.putValue(element, nanTransformedValue);
+        }
+      } else if (value instanceof Object[]) {
+        // Multi-valued column.
+        Object[] values = (Object[]) value;
+        int numValues = values.length;
+        for (int i = 0; i < numValues; i++) {
+          values[i] = transformNegativeZero(values[i]);
+          values[i] = transformNaN(values[i]);
         }
       }
     }
