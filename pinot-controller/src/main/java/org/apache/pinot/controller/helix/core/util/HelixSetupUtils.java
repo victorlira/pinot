@@ -47,7 +47,7 @@ import org.apache.pinot.common.utils.helix.LeadControllerUtils;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.helix.core.PinotHelixBrokerResourceOnlineOfflineStateModelGenerator;
 import org.apache.pinot.controller.helix.core.PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator;
-import org.apache.pinot.controller.helix.core.PinotHelixSegmentOnlineOfflineStateModelGenerator;
+import org.apache.pinot.controller.helix.core.PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,23 +139,24 @@ public class HelixSetupUtils {
 
   private static void addSegmentStateModelDefinitionIfNeeded(String helixClusterName, HelixAdmin helixAdmin,
       HelixDataAccessor helixDataAccessor, boolean isUpdateStateModel) {
-    String segmentStateModelName =
-        PinotHelixSegmentOnlineOfflineStateModelGenerator.PINOT_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
-    StateModelDefinition stateModelDefinition = helixAdmin.getStateModelDef(helixClusterName, segmentStateModelName);
+    String realtimeSegmentStateModelName =
+        PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator.PINOT_REALTIME_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
+    StateModelDefinition stateModelDefinition =
+        helixAdmin.getStateModelDef(helixClusterName, realtimeSegmentStateModelName);
     if (stateModelDefinition == null || isUpdateStateModel) {
       if (stateModelDefinition == null) {
-        LOGGER.info("Adding state model: {} with CONSUMING state", segmentStateModelName);
+        LOGGER.info("Adding state model: {} with CONSUMING state", realtimeSegmentStateModelName);
       } else {
-        LOGGER.info("Updating state model: {} to contain CONSUMING state", segmentStateModelName);
+        LOGGER.info("Updating state model: {} to contain CONSUMING state", realtimeSegmentStateModelName);
       }
-      helixDataAccessor
-          .createStateModelDef(PinotHelixSegmentOnlineOfflineStateModelGenerator.generatePinotStateModelDefinition());
+      helixDataAccessor.createStateModelDef(
+          PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator.generatePinotStateModelDefinition());
     }
 
     String offlineSegmentStateModelName =
         PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.PINOT_OFFLINE_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
-    StateModelDefinition offlineStateModelDefinition = helixAdmin.getStateModelDef(helixClusterName,
-        offlineSegmentStateModelName);
+    StateModelDefinition offlineStateModelDefinition =
+        helixAdmin.getStateModelDef(helixClusterName, offlineSegmentStateModelName);
     if (offlineStateModelDefinition == null || isUpdateStateModel) {
       if (stateModelDefinition == null) {
         LOGGER.info("Adding offline segment state model: {} with CONSUMING state", offlineSegmentStateModelName);

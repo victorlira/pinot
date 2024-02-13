@@ -1583,17 +1583,19 @@ public class PinotHelixResourceManager {
     Preconditions.checkState(tableType == TableType.OFFLINE || tableType == TableType.REALTIME,
         "Invalid table type: %s", tableType);
 
-    IdealState idealState;
-    if (tableType == TableType.REALTIME) {
-      idealState =
-           PinotTableIdealStateBuilder.buildEmptyIdealStateFor(tableNameWithType, tableConfig.getReplication(),
-               _enableBatchMessageMode);
-    } else {
-      // Creates a FULL-AUTO based ideal state, supported for OFFLINE tables only
-      idealState =
-          PinotTableIdealStateBuilder.buildEmptyFullAutoIdealStateFor(tableNameWithType, tableConfig.getReplication(),
-              _enableBatchMessageMode);
-    }
+    IdealState idealState =
+        PinotTableIdealStateHelper.buildEmptyFullAutoIdealStateFor(tableNameWithType, tableConfig.getReplication(),
+            _enableBatchMessageMode);
+//    if (tableType == TableType.REALTIME) {
+//      idealState =
+//           PinotTableIdealStateBuilder.buildEmptyIdealStateFor(tableNameWithType, tableConfig.getReplication(),
+//               _enableBatchMessageMode);
+//    } else {
+//      // Creates a FULL-AUTO based ideal state, supported for OFFLINE tables only
+//      idealState =
+//          PinotTableIdealStateBuilder.buildEmptyFullAutoIdealStateFor(tableNameWithType, tableConfig.getReplication(),
+//              _enableBatchMessageMode);
+//    }
    // IdealState idealState =
    //     PinotTableIdealStateBuilder.buildEmptyIdealStateFor(tableNameWithType, tableConfig.getReplication(),
    //         _enableBatchMessageMode);
@@ -2270,8 +2272,10 @@ public class PinotHelixResourceManager {
             TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableNameWithType);
             if (tableType == TableType.REALTIME) {
               // TODO: Once REALTIME uses FULL-AUTO only the listFields should be updated
-              currentAssignment.put(segmentName,
-                  SegmentAssignmentUtils.getInstanceStateMap(assignedInstances, SegmentStateModel.ONLINE));
+              currentAssignmentList.put(segmentName, Collections.emptyList()
+                  /* SegmentAssignmentUtils.getInstanceStateList(assignedInstances) */);
+//              currentAssignment.put(segmentName,
+//                  SegmentAssignmentUtils.getInstanceStateMap(assignedInstances, SegmentStateModel.ONLINE));
             } else {
               // TODO: Assess whether to pass in an empty instance list or to set the preferred list
               currentAssignmentList.put(segmentName, Collections.emptyList()

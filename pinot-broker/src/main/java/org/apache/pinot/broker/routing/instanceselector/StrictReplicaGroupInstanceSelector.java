@@ -128,6 +128,8 @@ public class StrictReplicaGroupInstanceSelector extends ReplicaGroupInstanceSele
       Set<String> onlineInstances = entry.getValue();
       Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
       Set<String> instancesInIdealState = idealStateInstanceStateMap.keySet();
+//      Map<String, String> externalViewInstanceStateMap = externalViewAssignment.get(segment);
+//      Set<String> instanceInExternalView = externalViewInstanceStateMap.keySet();
       Set<String> unavailableInstances =
           unavailableInstancesMap.computeIfAbsent(instancesInIdealState, k -> new HashSet<>());
       for (String instance : instancesInIdealState) {
@@ -147,6 +149,7 @@ public class StrictReplicaGroupInstanceSelector extends ReplicaGroupInstanceSele
       String segment = entry.getKey();
       // NOTE: onlineInstances is either a TreeSet or an EmptySet (sorted)
       Set<String> onlineInstances = entry.getValue();
+//      Map<String, String> externalViewInstanceStateMap = externalViewAssignment.get(segment);
       Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
       Set<String> unavailableInstances = unavailableInstancesMap.get(idealStateInstanceStateMap.keySet());
       List<SegmentInstanceCandidate> candidates = new ArrayList<>(onlineInstances.size());
@@ -161,6 +164,7 @@ public class StrictReplicaGroupInstanceSelector extends ReplicaGroupInstanceSele
     for (Map.Entry<String, Set<String>> entry : newSegmentToOnlineInstancesMap.entrySet()) {
       String segment = entry.getKey();
       Set<String> onlineInstances = entry.getValue();
+//      Map<String, String> externalViewInstanceStateMap = externalViewAssignment.get(segment);
       Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
       Set<String> unavailableInstances =
           unavailableInstancesMap.getOrDefault(idealStateInstanceStateMap.keySet(), Collections.emptySet());

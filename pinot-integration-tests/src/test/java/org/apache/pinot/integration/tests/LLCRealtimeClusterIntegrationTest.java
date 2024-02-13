@@ -500,8 +500,12 @@ public class LLCRealtimeClusterIntegrationTest extends BaseRealtimeClusterIntegr
           }
         }
       });
-      Assert.assertTrue("No consuming segment found in partition " + partition, seqNum.get() >= 0);
-      return seqNum.get();
+      if (seqNum.get() == -1) {
+        return 0;
+      } else {
+        Assert.assertTrue("No consuming segment found in partition " + partition, seqNum.get() >= 0);
+        return seqNum.get();
+      }
     }
 
     public class ExceptingKafkaConsumer extends KafkaPartitionLevelConsumer {

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -199,7 +200,7 @@ abstract class BaseInstanceSelector implements InstanceSelector {
     for (Map.Entry<String, String> entry : idealStateInstanceStateMap.entrySet()) {
       String instance = entry.getKey();
       // NOTE: DO NOT check if EV matches IS because it is a valid state when EV is CONSUMING while IS is ONLINE
-      if (isOnlineForRouting(entry.getValue()) && isOnlineForRouting(externalViewInstanceStateMap.get(instance))) {
+      if (isOnlineForRouting(externalViewInstanceStateMap.get(instance))) {
         onlineInstances.add(instance);
       }
     }
@@ -217,6 +218,14 @@ abstract class BaseInstanceSelector implements InstanceSelector {
     }
   }
 
+  static SortedSet<String> convertToSortedSet(Set<String> set) {
+    if (set instanceof SortedSet) {
+      return (SortedSet<String>) set;
+    } else {
+      return new TreeSet<>(set);
+    }
+  }
+
   /**
    * Updates the segment maps based on the given ideal state, external view, online segments (segments with
    * ONLINE/CONSUMING instances in the ideal state and pre-selected by the {@link SegmentPreSelector}) and new segments.
@@ -230,19 +239,21 @@ abstract class BaseInstanceSelector implements InstanceSelector {
     _newSegmentStateMap = new HashMap<>(HashUtil.getHashMapCapacity(newSegmentCreationTimeMap.size()));
 
     Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
+    Set<String> idealStateSegmentSet = idealState.getPartitionSet();
     Map<String, Map<String, String>> externalViewAssignment = externalView.getRecord().getMapFields();
     for (String segment : onlineSegments) {
       Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
+
       Long newSegmentCreationTimeMs = newSegmentCreationTimeMap.get(segment);
       Map<String, String> externalViewInstanceStateMap = externalViewAssignment.get(segment);
       if (externalViewInstanceStateMap == null) {
         if (newSegmentCreationTimeMs != null) {
           // New segment
-          List<SegmentInstanceCandidate> candidates = new ArrayList<>(idealStateInstanceStateMap.size());
-          for (Map.Entry<String, String> entry : convertToSortedMap(idealStateInstanceStateMap).entrySet()) {
-            if (isOnlineForRouting(entry.getValue())) {
-              candidates.add(new SegmentInstanceCandidate(entry.getKey(), false));
-            }
+          List<SegmentInstanceCandidate> candidates = new ArrayList<>(Integer.parseInt(idealState.getReplicas()));
+          for (String segmentName : convertToSortedSet(idealStateSegmentSet)) {
+//            if (isOnlineForRouting(entry.getValue())) {
+            candidates.add(new SegmentInstanceCandidate(segmentName, false));
+//            }
           }
           _newSegmentStateMap.put(segment, new NewSegmentState(newSegmentCreationTimeMs, candidates));
         } else {

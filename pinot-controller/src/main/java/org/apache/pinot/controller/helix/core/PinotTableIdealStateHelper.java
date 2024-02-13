@@ -23,21 +23,23 @@ import org.apache.helix.controller.rebalancer.strategy.CrushEdRebalanceStrategy;
 import org.apache.helix.model.IdealState;
 import org.apache.helix.model.builder.CustomModeISBuilder;
 import org.apache.helix.model.builder.FullAutoModeISBuilder;
+import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.stream.PartitionGroupConsumptionStatus;
 import org.apache.pinot.spi.stream.PartitionGroupMetadata;
 import org.apache.pinot.spi.stream.PartitionGroupMetadataFetcher;
 import org.apache.pinot.spi.stream.StreamConfig;
+import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.apache.pinot.spi.utils.retry.RetryPolicies;
 import org.apache.pinot.spi.utils.retry.RetryPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class PinotTableIdealStateBuilder {
-  private PinotTableIdealStateBuilder() {
+public class PinotTableIdealStateHelper {
+  private PinotTableIdealStateHelper() {
   }
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(PinotTableIdealStateBuilder.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(PinotTableIdealStateHelper.class);
   private static final RetryPolicy DEFAULT_IDEALSTATE_UPDATE_RETRY_POLICY =
       RetryPolicies.randomDelayRetryPolicy(3, 100L, 200L);
 
@@ -57,12 +59,23 @@ public class PinotTableIdealStateBuilder {
   public static IdealState buildEmptyFullAutoIdealStateFor(String tableNameWithType, int numReplicas,
       boolean enableBatchMessageMode) {
     LOGGER.info("Building FULL-AUTO IdealState for Table: {}, numReplicas: {}", tableNameWithType, numReplicas);
+    TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableNameWithType);
+    String stateModel;
+    if (tableType == null) {
+      throw new RuntimeException("Failed to get table type from table name: " + tableNameWithType);
+    } else if (TableType.OFFLINE.equals(tableType)) {
+      stateModel =
+          PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.PINOT_OFFLINE_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
+    } else {
+      stateModel =
+          PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator.PINOT_REALTIME_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
+    }
+
     // FULL-AUTO Segment Online-Offline state model with a rebalance strategy, crushed auto-rebalance by default
     // TODO: The state model used only works for OFFLINE tables today. Add support for REALTIME state model too
     FullAutoModeISBuilder idealStateBuilder = new FullAutoModeISBuilder(tableNameWithType);
     idealStateBuilder
-        .setStateModel(
-            PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.PINOT_OFFLINE_SEGMENT_ONLINE_OFFLINE_STATE_MODEL)
+        .setStateModel(stateModel)
         .setNumPartitions(0).setNumReplica(numReplicas).setMaxPartitionsPerNode(1)
         // TODO: Revisit the rebalance strategy to use (maybe we add a custom one)
         .setRebalanceStrategy(CrushEdRebalanceStrategy.class.getName());
