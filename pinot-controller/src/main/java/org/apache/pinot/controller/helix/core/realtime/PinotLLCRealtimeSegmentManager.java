@@ -46,6 +46,7 @@ import org.apache.helix.Criteria;
 import org.apache.helix.HelixAdmin;
 import org.apache.helix.HelixManager;
 import org.apache.helix.InstanceType;
+import org.apache.helix.model.ExternalView;
 import org.apache.helix.model.IdealState;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
@@ -71,7 +72,6 @@ import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.apache.pinot.controller.helix.core.PinotTableIdealStateBuilder;
 import org.apache.pinot.controller.helix.core.assignment.segment.SegmentAssignment;
 import org.apache.pinot.controller.helix.core.assignment.segment.SegmentAssignmentFactory;
-import org.apache.pinot.controller.helix.core.assignment.segment.SegmentAssignmentUtils;
 import org.apache.pinot.controller.helix.core.realtime.segment.CommittingSegmentDescriptor;
 import org.apache.pinot.controller.helix.core.realtime.segment.FlushThresholdUpdateManager;
 import org.apache.pinot.controller.helix.core.realtime.segment.FlushThresholdUpdater;
@@ -448,6 +448,18 @@ public class PinotLLCRealtimeSegmentManager {
     }
   }
 
+  @VisibleForTesting
+  ExternalView getExternalView(String realtimeTableName) {
+    try {
+      ExternalView externalView = HelixHelper.getExternalViewForResource(_helixAdmin, _clusterName, realtimeTableName);
+      Preconditions.checkState(externalView != null, "Failed to find ExternalView for table: " + realtimeTableName);
+      return externalView;
+    } catch (Exception e) {
+      _controllerMetrics.addMeteredTableValue(realtimeTableName, ControllerMeter.LLC_ZOOKEEPER_FETCH_FAILURES, 1L);
+      throw e;
+    }
+  }
+
   /**
    * This method moves the segment file from another location to its permanent location.
    * When splitCommit is enabled, segment file is uploaded to the segmentLocation in the committingSegmentDescriptor,
@@ -521,9 +533,17 @@ public class PinotLLCRealtimeSegmentManager {
     TableConfig tableConfig = getTableConfig(realtimeTableName);
     InstancePartitions instancePartitions = getConsumingInstancePartitions(tableConfig);
     IdealState idealState = getIdealState(realtimeTableName);
-    Preconditions.checkState(
-        idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.CONSUMING),
-        "Failed to find instance in CONSUMING state in IdealState for segment: %s", committingSegmentName);
+    ExternalView externalView = getExternalView(realtimeTableName);
+    // Check whether there is at least 1 replica in ONLINE state for full-auto mode.
+    if (idealState.getRebalanceMode() == IdealState.RebalanceMode.FULL_AUTO) {
+      Preconditions.checkState(
+          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.ONLINE),
+          "Failed to find instance in ONLINE state in IdealState for segment: %s", committingSegmentName);
+    } else {
+      Preconditions.checkState(
+          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.CONSUMING),
+          "Failed to find instance in CONSUMING state in IdealState for segment: %s", committingSegmentName);
+    }
     int numReplicas = getNumReplicas(tableConfig, instancePartitions);
 
     /*
@@ -993,9 +1013,11 @@ public class PinotLLCRealtimeSegmentManager {
     // TODO: Need to figure out the best way to handle committed segments' state change
     if (committingSegmentName != null) {
       // Change committing segment state to ONLINE
-      Set<String> instances = instanceStatesMap.get(committingSegmentName).keySet();
-      instanceStatesMap.put(committingSegmentName,
-          SegmentAssignmentUtils.getInstanceStateMap(instances, SegmentStateModel.ONLINE));
+//      Set<String> instances = instanceStatesMap.get(committingSegmentName).keySet();
+//      instanceStatesMap.put(committingSegmentName,
+//          SegmentAssignmentUtils.getInstanceStateMap(instances, SegmentStateModel.ONLINE));
+//      instanceStatesList.put(newSegmentName, Collections.emptyList()
+//          /*SegmentAssignmentUtils.getInstanceStateList(instancesAssigned)*/);
       LOGGER.info("Updating segment: {} to ONLINE state", committingSegmentName);
     }
 
@@ -1029,14 +1051,14 @@ public class PinotLLCRealtimeSegmentManager {
       List<String> instancesAssigned =
           segmentAssignment.assignSegment(newSegmentName, instanceStatesMap, instancePartitionsMap);
       // No need to check for tableType as offline tables can never go to CONSUMING state. All callers are for REALTIME
-      instanceStatesMap.put(newSegmentName,
-          SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING));
+//      instanceStatesMap.put(newSegmentName,
+//          SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING));
       // TODO: Once REALTIME segments move to FULL-AUTO, we cannot update the map. Uncomment below lines to update list.
       //       Assess whether we should set am empty InstanceStateList for the segment or not. i.e. do we support
       //       this preferred list concept, and does Helix-Auto even allow preferred list concept (from code reading it
       //       looks like it does)
-      // instanceStatesList.put(newSegmentName, Collections.emptyList()
-      //    /*SegmentAssignmentUtils.getInstanceStateList(instancesAssigned)*/);
+      instanceStatesList.put(newSegmentName, Collections.emptyList()
+          /*SegmentAssignmentUtils.getInstanceStateList(instancesAssigned)*/);
       LOGGER.info("Adding new CONSUMING segment: {} to instances: {}", newSegmentName, instancesAssigned);
     }
   }
@@ -1247,8 +1269,11 @@ public class PinotLLCRealtimeSegmentManager {
                     newPartitionGroupMetadataList, instancePartitions, instanceStatesMap, instanceStatesList,
                     segmentAssignment, instancePartitionsMap, startOffset);
               } else {
-                LOGGER.error("Got unexpected instance state map: {} for segment: {}", instanceStateMap,
-                    latestSegmentName);
+                LOGGER.error(
+                    "Got unexpected instance state map: {} for segment: {}. Segment status: {}. "
+                        + "recreateDeletedConsumingSegment: {}",
+                    instanceStateMap, latestSegmentName, latestSegmentZKMetadata.getStatus(),
+                    recreateDeletedConsumingSegment);
               }
             }
             // else, the partition group has reached end of life. This is an acceptable state

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -130,11 +131,11 @@ abstract class BaseInstanceSelector implements InstanceSelector {
   Map<String, Long> getNewSegmentCreationTimeMapFromZK(IdealState idealState, ExternalView externalView,
       Set<String> onlineSegments) {
     List<String> potentialNewSegments = new ArrayList<>();
-    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
+//    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
     Map<String, Map<String, String>> externalViewAssignment = externalView.getRecord().getMapFields();
     for (String segment : onlineSegments) {
-      assert idealStateAssignment.containsKey(segment);
-      if (isPotentialNewSegment(idealStateAssignment.get(segment), externalViewAssignment.get(segment))) {
+      assert externalViewAssignment.containsKey(segment);
+      if (isPotentialNewSegment(externalViewAssignment.get(segment))) {
         potentialNewSegments.add(segment);
       }
     }
@@ -169,14 +170,13 @@ abstract class BaseInstanceSelector implements InstanceSelector {
    * - Any instance for the segment is in ERROR state
    * - External view for the segment converges with ideal state
    */
-  static boolean isPotentialNewSegment(Map<String, String> idealStateInstanceStateMap,
-      @Nullable Map<String, String> externalViewInstanceStateMap) {
+  static boolean isPotentialNewSegment(@Nullable Map<String, String> externalViewInstanceStateMap) {
     if (externalViewInstanceStateMap == null) {
       return true;
     }
     boolean hasConverged = true;
     // Only track ONLINE/CONSUMING instances within the ideal state
-    for (Map.Entry<String, String> entry : idealStateInstanceStateMap.entrySet()) {
+    for (Map.Entry<String, String> entry : externalViewInstanceStateMap.entrySet()) {
       if (isOnlineForRouting(entry.getValue())) {
         String externalViewState = externalViewInstanceStateMap.get(entry.getKey());
         if (externalViewState == null || externalViewState.equals(SegmentStateModel.OFFLINE)) {
@@ -192,14 +192,13 @@ abstract class BaseInstanceSelector implements InstanceSelector {
   /**
    * Returns the online instances for routing purpose.
    */
-  static TreeSet<String> getOnlineInstances(Map<String, String> idealStateInstanceStateMap,
-      Map<String, String> externalViewInstanceStateMap) {
+  static TreeSet<String> getOnlineInstances(Map<String, String> externalViewInstanceStateMap) {
     TreeSet<String> onlineInstances = new TreeSet<>();
     // Only track ONLINE/CONSUMING instances within the ideal state
-    for (Map.Entry<String, String> entry : idealStateInstanceStateMap.entrySet()) {
+    for (Map.Entry<String, String> entry : externalViewInstanceStateMap.entrySet()) {
       String instance = entry.getKey();
       // NOTE: DO NOT check if EV matches IS because it is a valid state when EV is CONSUMING while IS is ONLINE
-      if (isOnlineForRouting(entry.getValue()) && isOnlineForRouting(externalViewInstanceStateMap.get(instance))) {
+      if (isOnlineForRouting(externalViewInstanceStateMap.get(instance))) {
         onlineInstances.add(instance);
       }
     }
@@ -217,6 +216,14 @@ abstract class BaseInstanceSelector implements InstanceSelector {
     }
   }
 
+  static SortedSet<String> convertToSortedSet(Set<String> set) {
+    if (set instanceof SortedSet) {
+      return (SortedSet<String>) set;
+    } else {
+      return new TreeSet<>(set);
+    }
+  }
+
   /**
    * Updates the segment maps based on the given ideal state, external view, online segments (segments with
    * ONLINE/CONSUMING instances in the ideal state and pre-selected by the {@link SegmentPreSelector}) and new segments.
@@ -229,20 +236,22 @@ abstract class BaseInstanceSelector implements InstanceSelector {
     _oldSegmentCandidatesMap.clear();
     _newSegmentStateMap = new HashMap<>(HashUtil.getHashMapCapacity(newSegmentCreationTimeMap.size()));
 
-    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
+//    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
+    Set<String> idealStateSegmentSet = idealState.getPartitionSet();
     Map<String, Map<String, String>> externalViewAssignment = externalView.getRecord().getMapFields();
     for (String segment : onlineSegments) {
-      Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
+//      Map<String, String> idealStateInstanceStateMap = idealStateAssignment.get(segment);
+
       Long newSegmentCreationTimeMs = newSegmentCreationTimeMap.get(segment);
       Map<String, String> externalViewInstanceStateMap = externalViewAssignment.get(segment);
       if (externalViewInstanceStateMap == null) {
         if (newSegmentCreationTimeMs != null) {
           // New segment
-          List<SegmentInstanceCandidate> candidates = new ArrayList<>(idealStateInstanceStateMap.size());
-          for (Map.Entry<String, String> entry : convertToSortedMap(idealStateInstanceStateMap).entrySet()) {
-            if (isOnlineForRouting(entry.getValue())) {
-              candidates.add(new SegmentInstanceCandidate(entry.getKey(), false));
-            }
+          List<SegmentInstanceCandidate> candidates = new ArrayList<>(Integer.parseInt(idealState.getReplicas()));
+          for (String segmentName : convertToSortedSet(idealStateSegmentSet)) {
+//            if (isOnlineForRouting(entry.getValue())) {
+            candidates.add(new SegmentInstanceCandidate(segmentName, false));
+//            }
           }
           _newSegmentStateMap.put(segment, new NewSegmentState(newSegmentCreationTimeMs, candidates));
         } else {
@@ -250,11 +259,11 @@ abstract class BaseInstanceSelector implements InstanceSelector {
           _oldSegmentCandidatesMap.put(segment, Collections.emptyList());
         }
       } else {
-        TreeSet<String> onlineInstances = getOnlineInstances(idealStateInstanceStateMap, externalViewInstanceStateMap);
+        TreeSet<String> onlineInstances = getOnlineInstances(externalViewInstanceStateMap);
         if (newSegmentCreationTimeMs != null) {
           // New segment
-          List<SegmentInstanceCandidate> candidates = new ArrayList<>(idealStateInstanceStateMap.size());
-          for (Map.Entry<String, String> entry : convertToSortedMap(idealStateInstanceStateMap).entrySet()) {
+          List<SegmentInstanceCandidate> candidates = new ArrayList<>(externalViewInstanceStateMap.size());
+          for (Map.Entry<String, String> entry : convertToSortedMap(externalViewInstanceStateMap).entrySet()) {
             if (isOnlineForRouting(entry.getValue())) {
               String instance = entry.getKey();
               candidates.add(new SegmentInstanceCandidate(instance, onlineInstances.contains(instance)));
@@ -365,7 +374,7 @@ abstract class BaseInstanceSelector implements InstanceSelector {
   @Override
   public void onAssignmentChange(IdealState idealState, ExternalView externalView, Set<String> onlineSegments) {
     Map<String, Long> newSegmentCreationTimeMap =
-        getNewSegmentCreationTimeMapFromExistingStates(idealState, externalView, onlineSegments);
+        getNewSegmentCreationTimeMapFromExistingStates(externalView, onlineSegments);
     updateSegmentMaps(idealState, externalView, onlineSegments, newSegmentCreationTimeMap);
     refreshSegmentStates();
   }
@@ -373,11 +382,11 @@ abstract class BaseInstanceSelector implements InstanceSelector {
   /**
    * Returns a map from new segment to their creation time based on the existing in-memory states.
    */
-  Map<String, Long> getNewSegmentCreationTimeMapFromExistingStates(IdealState idealState, ExternalView externalView,
+  Map<String, Long> getNewSegmentCreationTimeMapFromExistingStates(ExternalView externalView,
       Set<String> onlineSegments) {
     Map<String, Long> newSegmentCreationTimeMap = new HashMap<>();
     long currentTimeMs = _clock.millis();
-    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
+//    Map<String, Map<String, String>> idealStateAssignment = idealState.getRecord().getMapFields();
     Map<String, Map<String, String>> externalViewAssignment = externalView.getRecord().getMapFields();
     for (String segment : onlineSegments) {
       NewSegmentState newSegmentState = _newSegmentStateMap.get(segment);
@@ -393,8 +402,8 @@ abstract class BaseInstanceSelector implements InstanceSelector {
       }
       // For recently created segment, check if it is qualified as new segment
       if (creationTimeMs > 0) {
-        assert idealStateAssignment.containsKey(segment);
-        if (isPotentialNewSegment(idealStateAssignment.get(segment), externalViewAssignment.get(segment))) {
+        assert externalViewAssignment.containsKey(segment);
+        if (isPotentialNewSegment(externalViewAssignment.get(segment))) {
           newSegmentCreationTimeMap.put(segment, creationTimeMs);
         }
       }

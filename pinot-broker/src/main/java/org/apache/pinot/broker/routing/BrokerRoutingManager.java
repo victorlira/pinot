@@ -431,7 +431,7 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
       externalViewVersion = externalView.getRecord().getVersion();
     }
 
-    Set<String> onlineSegments = getOnlineSegments(idealState);
+    Set<String> onlineSegments = getOnlineSegments(idealState, externalView);
 
     SegmentPreSelector segmentPreSelector =
         SegmentPreSelectorFactory.getSegmentPreSelector(tableConfig, _propertyStore);
@@ -480,7 +480,7 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
         if (offlineTableExternalView == null) {
           offlineTableExternalView = new ExternalView(offlineTableName);
         }
-        Set<String> offlineTableOnlineSegments = getOnlineSegments(offlineTableIdealState);
+        Set<String> offlineTableOnlineSegments = getOnlineSegments(offlineTableIdealState, offlineTableExternalView);
         SegmentPreSelector offlineTableSegmentPreSelector =
             SegmentPreSelectorFactory.getSegmentPreSelector(offlineTableConfig, _propertyStore);
         Set<String> offlineTablePreSelectedOnlineSegments =
@@ -538,8 +538,11 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
   /**
    * Returns the online segments (with ONLINE/CONSUMING instances) in the given ideal state.
    */
-  private static Set<String> getOnlineSegments(IdealState idealState) {
+  private static Set<String> getOnlineSegments(IdealState idealState, ExternalView externalView) {
     Map<String, Map<String, String>> segmentAssignment = idealState.getRecord().getMapFields();
+    if (segmentAssignment.isEmpty()) {
+      segmentAssignment = externalView.getRecord().getMapFields();
+    }
     Set<String> onlineSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
     for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
       Map<String, String> instanceStateMap = entry.getValue();
@@ -777,7 +780,7 @@ public class BrokerRoutingManager implements RoutingManager, ClusterChangeHandle
     // inconsistency between components, which is fine because the inconsistency only exists for the newly changed
     // segments and only lasts for a very short time.
     void onAssignmentChange(IdealState idealState, ExternalView externalView) {
-      Set<String> onlineSegments = getOnlineSegments(idealState);
+      Set<String> onlineSegments = getOnlineSegments(idealState, externalView);
       Set<String> preSelectedOnlineSegments = _segmentPreSelector.preSelect(onlineSegments);
       _segmentZkMetadataFetcher.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);
       _segmentSelector.onAssignmentChange(idealState, externalView, preSelectedOnlineSegments);

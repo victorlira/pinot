@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.commons.lang.StringUtils;
 import org.apache.helix.AccessOption;
 import org.apache.helix.model.IdealState;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
@@ -141,8 +142,12 @@ public class MissingConsumingSegmentFinder {
             // Note that there is no problem in case the partition group has reached its end of life.
             SegmentZKMetadata segmentZKMetadata = _segmentMetadataFetcher
                 .fetchSegmentZkMetadata(_realtimeTableName, latestCompletedSegment.getSegmentName());
+            String endOffset = segmentZKMetadata.getEndOffset();
+            if (StringUtils.isEmpty(endOffset)) {
+              return;
+            }
             StreamPartitionMsgOffset completedSegmentEndOffset =
-                _streamPartitionMsgOffsetFactory.create(segmentZKMetadata.getEndOffset());
+                _streamPartitionMsgOffsetFactory.create(endOffset);
             if (completedSegmentEndOffset.compareTo(largestStreamOffset) < 0) {
               // there are unconsumed messages available on the stream
               missingSegmentInfo._totalCount++;

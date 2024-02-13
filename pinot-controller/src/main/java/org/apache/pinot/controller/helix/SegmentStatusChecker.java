@@ -256,8 +256,12 @@ public class SegmentStatusChecker extends ControllerPeriodicTask<SegmentStatusCh
       int nReplicas = 0;
       int nIdeal = 0;
       nSegments++;
+      Map<String, String> partitionMap = idealState.getInstanceStateMap(partitionName);
+      if (partitionMap == null) {
+        continue;
+      }
       // Skip segments not online in ideal state
-      for (Map.Entry<String, String> serverAndState : idealState.getInstanceStateMap(partitionName).entrySet()) {
+      for (Map.Entry<String, String> serverAndState : partitionMap.entrySet()) {
         if (serverAndState == null) {
           break;
         }

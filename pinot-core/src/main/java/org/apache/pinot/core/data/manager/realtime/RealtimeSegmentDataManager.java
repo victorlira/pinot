@@ -863,6 +863,13 @@ public class RealtimeSegmentDataManager extends SegmentDataManager {
   }
 
   /**
+   * Returns the state of the realtime segment.
+   */
+  public State getState() {
+    return _state;
+  }
+
+  /**
    * Returns the timestamp of the last consumed message.
    */
   public long getLastConsumedTimestamp() {
