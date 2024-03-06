@@ -179,7 +179,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
       assertNotNull(instanceStateMap);
       assertEquals(instanceStateMap.size(), numReplicas);
       for (String state : instanceStateMap.values()) {
-        assertEquals(state, SegmentStateModel.CONSUMING);
+        assertEquals(state, SegmentStateModel.ONLINE);
       }
 
       SegmentZKMetadata segmentZKMetadata = segmentManager.getSegmentZKMetadata(REALTIME_TABLE_NAME, segmentName, null);
@@ -223,7 +223,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
     Map<String, String> consumingSegmentInstanceStateMap = instanceStatesMap.get(consumingSegment);
     assertNotNull(consumingSegmentInstanceStateMap);
     assertEquals(new HashSet<>(consumingSegmentInstanceStateMap.values()),
-        Collections.singleton(SegmentStateModel.CONSUMING));
+        Collections.singleton(SegmentStateModel.ONLINE));
 
     // Verify segment ZK metadata for committed segment and new consuming segment
     SegmentZKMetadata committedSegmentZKMetadata = segmentManager._segmentZKMetadataMap.get(committingSegment);
@@ -260,7 +260,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
     consumingSegmentInstanceStateMap = instanceStatesMap.get(consumingSegment);
     assertNotNull(consumingSegmentInstanceStateMap);
     assertEquals(new HashSet<>(consumingSegmentInstanceStateMap.values()),
-        Collections.singleton(SegmentStateModel.CONSUMING));
+        Collections.singleton(SegmentStateModel.ONLINE));
 
     // Illegal segment commit - commit the segment again
     try {
@@ -421,7 +421,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
       Map<String, String> instanceStateMap = instanceStatesMap.get(segmentName);
       assertEquals(instanceStateMap.size(), segmentManager._numReplicas);
       for (String state : instanceStateMap.values()) {
-        assertEquals(state, SegmentStateModel.CONSUMING);
+        assertEquals(state, SegmentStateModel.ONLINE);
       }
       // NOTE: Old segment ZK metadata might exist when previous round failed due to not enough instances
       assertTrue(segmentZKMetadataMap.containsKey(segmentName));
@@ -622,7 +622,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
     Map<String, String> consumingSegmentInstanceStateMap = instanceStatesMap.remove(consumingSegment);
     assertNotNull(consumingSegmentInstanceStateMap);
     assertEquals(new HashSet<>(consumingSegmentInstanceStateMap.values()),
-        Collections.singleton(SegmentStateModel.CONSUMING));
+        Collections.singleton(SegmentStateModel.ONLINE));
 
     if (latestCommittedSegment != null) {
       Map<String, String> latestCommittedSegmentInstanceStateMap = instanceStatesMap.get(latestCommittedSegment);
@@ -630,7 +630,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
       for (Map.Entry<String, String> entry : latestCommittedSegmentInstanceStateMap.entrySet()) {
         // Latest committed segment should have all instances in ONLINE state
         assertEquals(entry.getValue(), SegmentStateModel.ONLINE);
-        entry.setValue(SegmentStateModel.CONSUMING);
+        entry.setValue(SegmentStateModel.ONLINE);
       }
     }
   }
@@ -644,7 +644,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
     assertNotNull(consumingSegmentInstanceStateMap);
     for (Map.Entry<String, String> entry : consumingSegmentInstanceStateMap.entrySet()) {
       // Consuming segment should have all instances in CONSUMING state
-      assertEquals(entry.getValue(), SegmentStateModel.CONSUMING);
+      assertEquals(entry.getValue(), SegmentStateModel.ONLINE);
       entry.setValue(SegmentStateModel.OFFLINE);
     }
   }
@@ -657,7 +657,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
     Map<String, String> consumingSegmentInstanceStateMap = instanceStatesMap.get(consumingSegment);
     assertNotNull(consumingSegmentInstanceStateMap);
     for (Map.Entry<String, String> entry : consumingSegmentInstanceStateMap.entrySet()) {
-      entry.setValue(SegmentStateModel.CONSUMING);
+      entry.setValue(SegmentStateModel.ONLINE);
     }
   }
 
@@ -702,8 +702,7 @@ public class PinotLLCRealtimeSegmentManagerTest {
       Map<String, String> instanceStateMap = entry.getValue();
 
       // Skip segments with all instances OFFLINE
-      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE) || instanceStateMap
-          .containsValue(SegmentStateModel.CONSUMING)) {
+      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE)) {
         LLCSegmentName llcSegmentName = new LLCSegmentName(segmentName);
         int partitionsId = llcSegmentName.getPartitionGroupId();
         Map<Integer, String> sequenceNumberToSegmentMap = partitionGroupIdToSegmentsMap.get(partitionsId);
@@ -723,8 +722,8 @@ public class PinotLLCRealtimeSegmentManagerTest {
       Map<String, String> instanceStateMap = instanceStatesMap.get(latestSegment);
       if (!shardsEnded.contains(partitionGroupId)) {
         // Latest segment should have CONSUMING instance but no ONLINE instance in ideal state
-        assertTrue(instanceStateMap.containsValue(SegmentStateModel.CONSUMING));
-        assertFalse(instanceStateMap.containsValue(SegmentStateModel.ONLINE));
+        assertTrue(instanceStateMap.containsValue(SegmentStateModel.ONLINE));
+//        assertFalse(instanceStateMap.containsValue(SegmentStateModel.ONLINE));
 
         // Latest segment ZK metadata should be IN_PROGRESS
         assertEquals(segmentManager._segmentZKMetadataMap.get(latestSegment).getStatus(), Status.IN_PROGRESS);

@@ -127,7 +127,7 @@ public class SegmentPartitionMetadataManager implements SegmentZkMetadataFetchLi
     List<String> onlineServers = new ArrayList<>(instanceStateMap.size());
     for (Map.Entry<String, String> entry : instanceStateMap.entrySet()) {
       String instanceState = entry.getValue();
-      if (instanceState.equals(SegmentStateModel.ONLINE) || instanceState.equals(SegmentStateModel.CONSUMING)) {
+      if (instanceState.equals(SegmentStateModel.ONLINE)) {
         onlineServers.add(entry.getKey());
       }
     }

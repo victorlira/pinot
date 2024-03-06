@@ -415,7 +415,7 @@ public class LLCRealtimeClusterIntegrationTest extends BaseRealtimeClusterIntegr
     Set<String> matchingSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
     for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
       Map<String, String> instanceStateMap = entry.getValue();
-      if (instanceStateMap.containsValue(CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING)) {
+      if (instanceStateMap.containsValue(CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE)) {
         matchingSegments.add(entry.getKey());
       }
     }
@@ -492,7 +492,7 @@ public class LLCRealtimeClusterIntegrationTest extends BaseRealtimeClusterIntegr
       is.getPartitionSet().forEach(segmentNameStr -> {
         if (LLCSegmentName.isLLCSegment(segmentNameStr)) {
           if (is.getInstanceStateMap(segmentNameStr).values().contains(
-              CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING)) {
+              CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE)) {
             LLCSegmentName segmentName = new LLCSegmentName(segmentNameStr);
             if (segmentName.getPartitionGroupId() == partition) {
               seqNum.set(segmentName.getSequenceNumber());

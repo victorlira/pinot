@@ -61,7 +61,6 @@ import org.testng.annotations.Test;
 import static org.apache.pinot.broker.routing.instanceselector.InstanceSelector.NEW_SEGMENT_EXPIRATION_MILLIS;
 import static org.apache.pinot.spi.config.table.RoutingConfig.REPLICA_GROUP_INSTANCE_SELECTOR_TYPE;
 import static org.apache.pinot.spi.config.table.RoutingConfig.STRICT_REPLICA_GROUP_INSTANCE_SELECTOR_TYPE;
-import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.ERROR;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.OFFLINE;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE;
@@ -1105,15 +1104,15 @@ public class InstanceSelectorTest {
     String segment0 = "segment0";
     String segment1 = "segment1";
     Map<String, String> idealStateInstanceStateMap = new TreeMap<>();
-    idealStateInstanceStateMap.put(instance, CONSUMING);
+    idealStateInstanceStateMap.put(instance, ONLINE);
     idealStateInstanceStateMap.put(errorInstance, ONLINE);
     idealStateSegmentAssignment.put(segment0, idealStateInstanceStateMap);
     idealStateSegmentAssignment.put(segment1, idealStateInstanceStateMap);
     Map<String, String> externalViewInstanceStateMap0 = new TreeMap<>();
-    externalViewInstanceStateMap0.put(instance, CONSUMING);
+    externalViewInstanceStateMap0.put(instance, ONLINE);
     externalViewInstanceStateMap0.put(errorInstance, ERROR);
     Map<String, String> externalViewInstanceStateMap1 = new TreeMap<>();
-    externalViewInstanceStateMap1.put(instance, CONSUMING);
+    externalViewInstanceStateMap1.put(instance, ONLINE);
     externalViewInstanceStateMap1.put(errorInstance, ERROR);
     externalViewSegmentAssignment.put(segment0, externalViewInstanceStateMap0);
     externalViewSegmentAssignment.put(segment1, externalViewInstanceStateMap1);
@@ -1359,10 +1358,10 @@ public class InstanceSelectorTest {
       //     (enabled)  errorInstance: ERROR
       //   }
       // }
-      idealStateInstanceStateMap.put(instance, CONSUMING);
-      externalViewInstanceStateMap0.put(instance, CONSUMING);
+      idealStateInstanceStateMap.put(instance, ONLINE);
+      externalViewInstanceStateMap0.put(instance, ONLINE);
       externalViewInstanceStateMap0.put(errorInstance, ERROR);
-      externalViewInstanceStateMap1.put(instance, CONSUMING);
+      externalViewInstanceStateMap1.put(instance, ONLINE);
       balancedInstanceSelector.onAssignmentChange(idealState, externalView, onlineSegments);
       strictReplicaGroupInstanceSelector.onAssignmentChange(idealState, externalView, onlineSegments);
       selectionResult = balancedInstanceSelector.select(brokerRequest, segments, 0);

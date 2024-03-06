@@ -192,7 +192,7 @@ public class UpsertTableSegmentUploadIntegrationTest extends BaseClusterIntegrat
       Map.Entry<String, String> instanceIdAndState = instanceStateMap.entrySet().iterator().next();
       String state = instanceIdAndState.getValue();
       if (LLCSegmentName.isLLCSegment(segmentName)) {
-        assertEquals(state, SegmentStateModel.CONSUMING);
+        assertEquals(state, SegmentStateModel.ONLINE);
       } else {
         assertEquals(state, SegmentStateModel.ONLINE);
       }

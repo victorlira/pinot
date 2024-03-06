@@ -302,7 +302,7 @@ public class ControllerPeriodicTasksIntegrationTest extends BaseClusterIntegrati
       for (Map<String, String> instanceStateMap : idealState.getRecord().getMapFields().values()) {
         for (Map.Entry<String, String> entry : instanceStateMap.entrySet()) {
           String state = entry.getValue();
-          if (state.equals(SegmentStateModel.CONSUMING)) {
+          if (state.equals("CONSUMING")) {
             consumingServers.add(entry.getKey());
           } else if (state.equals(SegmentStateModel.ONLINE)) {
             completedServers.add(entry.getKey());

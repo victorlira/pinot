@@ -132,8 +132,7 @@ public class StrictRealtimeSegmentAssignment extends RealtimeSegmentAssignment {
    * Returns {@code true} if all instances are OFFLINE (neither ONLINE nor CONSUMING), {@code false} otherwise.
    */
   private boolean isOfflineSegment(Map<String, String> instanceStateMap) {
-    return !instanceStateMap.containsValue(SegmentStateModel.ONLINE) && !instanceStateMap.containsValue(
-        SegmentStateModel.CONSUMING);
+    return !instanceStateMap.containsValue(SegmentStateModel.ONLINE);
   }
 
   /**
@@ -180,8 +179,9 @@ public class StrictRealtimeSegmentAssignment extends RealtimeSegmentAssignment {
         // Reassign CONSUMING and COMPLETED segments
         List<String> instancesAssigned =
             assignConsumingSegment(getPartitionIdUsingCache(segmentName), instancePartitions);
-        String state = instanceStateMap.containsValue(SegmentStateModel.CONSUMING) ? SegmentStateModel.CONSUMING
-            : SegmentStateModel.ONLINE;
+        String state = SegmentStateModel.ONLINE;
+//        String state = instanceStateMap.containsValue(SegmentStateModel.CONSUMING) ? SegmentStateModel.CONSUMING
+//            : SegmentStateModel.ONLINE;
         newAssignment.put(segmentName, SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, state));
       }
     }

@@ -231,7 +231,7 @@ public class RealtimeReplicaGroupSegmentAssignmentTest {
         // check CONSUMING segments
         newAssignment.get(_segments.get(segmentId)).forEach((instance, state) -> {
           assertTrue(instance.startsWith(CONSUMING_INSTANCE_NAME_PREFIX));
-          assertEquals(state, SegmentStateModel.CONSUMING);
+          assertEquals(state, SegmentStateModel.ONLINE);
         });
       }
     }
@@ -446,7 +446,7 @@ public class RealtimeReplicaGroupSegmentAssignmentTest {
 
     // Add the new segment into the assignment as CONSUMING
     currentAssignment.put(_segments.get(segmentId),
-        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING));
+        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.ONLINE));
   }
 
   private HelixManager createHelixManager() {

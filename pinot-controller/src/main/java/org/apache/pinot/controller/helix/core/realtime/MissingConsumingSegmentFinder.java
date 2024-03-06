@@ -42,7 +42,7 @@ import org.apache.pinot.spi.stream.StreamConfig;
 import org.apache.pinot.spi.stream.StreamConsumerFactoryProvider;
 import org.apache.pinot.spi.stream.StreamPartitionMsgOffset;
 import org.apache.pinot.spi.stream.StreamPartitionMsgOffsetFactory;
-import org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +62,7 @@ public class MissingConsumingSegmentFinder {
   private final SegmentMetadataFetcher _segmentMetadataFetcher;
   private final Map<Integer, StreamPartitionMsgOffset> _partitionGroupIdToLargestStreamOffsetMap;
   private final StreamPartitionMsgOffsetFactory _streamPartitionMsgOffsetFactory;
+  private final ZkHelixPropertyStore<ZNRecord> _propertyStore;
 
   private ControllerMetrics _controllerMetrics;
 
@@ -69,6 +70,7 @@ public class MissingConsumingSegmentFinder {
       ControllerMetrics controllerMetrics, StreamConfig streamConfig) {
     _realtimeTableName = realtimeTableName;
     _controllerMetrics = controllerMetrics;
+    _propertyStore = propertyStore;
     _segmentMetadataFetcher = new SegmentMetadataFetcher(propertyStore, controllerMetrics);
     _streamPartitionMsgOffsetFactory =
         StreamConsumerFactoryProvider.create(streamConfig).createStreamMsgOffsetFactory();
@@ -94,6 +96,7 @@ public class MissingConsumingSegmentFinder {
       StreamPartitionMsgOffsetFactory streamPartitionMsgOffsetFactory) {
     _realtimeTableName = realtimeTableName;
     _segmentMetadataFetcher = segmentMetadataFetcher;
+    _propertyStore = segmentMetadataFetcher._propertyStore;
     _partitionGroupIdToLargestStreamOffsetMap = partitionGroupIdToLargestStreamOffsetMap;
     _streamPartitionMsgOffsetFactory = streamPartitionMsgOffsetFactory;
   }
@@ -118,11 +121,21 @@ public class MissingConsumingSegmentFinder {
     idealStateMap.forEach((segmentName, instanceToStatusMap) -> {
       LLCSegmentName llcSegmentName = LLCSegmentName.of(segmentName);
       if (llcSegmentName != null) { // Skip the uploaded realtime segments that don't conform to llc naming
-        if (instanceToStatusMap.containsValue(SegmentStateModel.CONSUMING)) {
-          updateMap(partitionGroupIdToLatestConsumingSegmentMap, llcSegmentName);
-        } else if (instanceToStatusMap.containsValue(SegmentStateModel.ONLINE)) {
-          updateMap(partitionGroupIdToLatestCompletedSegmentMap, llcSegmentName);
+        SegmentZKMetadata segmentZKMetadata =
+            ZKMetadataProvider.getSegmentZKMetadata(_propertyStore, _realtimeTableName, segmentName);
+        if (segmentZKMetadata != null) {
+          CommonConstants.Segment.Realtime.Status status = segmentZKMetadata.getStatus();
+          if (status == CommonConstants.Segment.Realtime.Status.IN_PROGRESS) {
+            updateMap(partitionGroupIdToLatestConsumingSegmentMap, llcSegmentName);
+          } else if (status == CommonConstants.Segment.Realtime.Status.DONE) {
+            updateMap(partitionGroupIdToLatestCompletedSegmentMap, llcSegmentName);
+          }
         }
+//        if (instanceToStatusMap.containsValue(SegmentStateModel.CONSUMING)) {
+//          updateMap(partitionGroupIdToLatestConsumingSegmentMap, llcSegmentName);
+//        } else if (instanceToStatusMap.containsValue(SegmentStateModel.ONLINE)) {
+//          updateMap(partitionGroupIdToLatestCompletedSegmentMap, llcSegmentName);
+//        }
       }
     });
 

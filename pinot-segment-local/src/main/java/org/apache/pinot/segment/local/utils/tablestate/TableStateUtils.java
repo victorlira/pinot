@@ -27,6 +27,11 @@ import org.apache.helix.PropertyKey;
 import org.apache.helix.model.CurrentState;
 import org.apache.helix.model.IdealState;
 import org.apache.helix.model.LiveInstance;
+import org.apache.helix.store.zk.ZkHelixPropertyStore;
+import org.apache.helix.zookeeper.datamodel.ZNRecord;
+import org.apache.pinot.common.metadata.ZKMetadataProvider;
+import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,12 +49,13 @@ public class TableStateUtils {
    *
    * @param helixManager instance of Helix manager
    * @param tableNameWithType table for which we are obtaining segments in a given state
-   * @param state state of the segments to be returned
+   * @param status valid status of the segments to be returned
    *
    * @return List of segment names in a given state.
    */
   public static List<String> getSegmentsInGivenStateForThisInstance(HelixManager helixManager, String tableNameWithType,
-      String state) {
+      CommonConstants.Segment.Realtime.Status status) {
+    ZkHelixPropertyStore<ZNRecord> propertyStore = helixManager.getHelixPropertyStore();
     HelixDataAccessor dataAccessor = helixManager.getHelixDataAccessor();
     PropertyKey.Builder keyBuilder = dataAccessor.keyBuilder();
     IdealState idealState = dataAccessor.getProperty(keyBuilder.idealStates(tableNameWithType));
@@ -66,11 +72,15 @@ public class TableStateUtils {
       String segmentName = entry.getKey();
       Map<String, String> instanceStateMap = entry.getValue();
       String expectedState = instanceStateMap.get(instanceName);
-      // Only track state segments assigned to the current instance
-      if (!state.equals(expectedState)) {
-        continue;
+      if (!CommonConstants.Helix.StateModel.SegmentStateModel.ERROR.equals(expectedState)) {
+        SegmentZKMetadata segmentZKMetadata =
+            ZKMetadataProvider.getSegmentZKMetadata(propertyStore, tableNameWithType, segmentName);
+        // Only track state segments assigned to the current instance
+        if (segmentZKMetadata != null && segmentZKMetadata.getStatus() != status) {
+          continue;
+        }
+        segmentsInGivenState.add(segmentName);
       }
-      segmentsInGivenState.add(segmentName);
     }
     return segmentsInGivenState;
   }
@@ -85,7 +95,8 @@ public class TableStateUtils {
    */
   public static boolean isAllSegmentsLoaded(HelixManager helixManager, String tableNameWithType) {
     List<String> onlineSegments =
-        getSegmentsInGivenStateForThisInstance(helixManager, tableNameWithType, SegmentStateModel.ONLINE);
+        getSegmentsInGivenStateForThisInstance(helixManager, tableNameWithType,
+            CommonConstants.Segment.Realtime.Status.DONE);
     if (onlineSegments.isEmpty()) {
       LOGGER.info("No ONLINE segment found for table: {}", tableNameWithType);
       return true;

@@ -3,6 +3,9 @@
   "tableType": "REALTIME",
   "tenants": {},
   "segmentsConfig": {
+    "completionConfig": {
+      "completionMode": "DOWNLOAD"
+    },
     "timeColumnName": "DaysSinceEpoch",
     "retentionTimeUnit": "DAYS",
     "retentionTimeValue": "5",

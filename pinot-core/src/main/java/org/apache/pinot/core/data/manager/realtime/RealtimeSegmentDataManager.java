@@ -37,7 +37,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 import org.apache.commons.io.FileUtils;
+import org.apache.helix.store.zk.ZkHelixPropertyStore;
+import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.common.Utils;
+import org.apache.pinot.common.metadata.ZKMetadataProvider;
 import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
 import org.apache.pinot.common.metrics.ServerGauge;
 import org.apache.pinot.common.metrics.ServerMeter;
@@ -95,6 +98,7 @@ import org.apache.pinot.spi.stream.StreamMessageDecoder;
 import org.apache.pinot.spi.stream.StreamMetadataProvider;
 import org.apache.pinot.spi.stream.StreamPartitionMsgOffset;
 import org.apache.pinot.spi.stream.StreamPartitionMsgOffsetFactory;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.CommonConstants.ConsumerState;
 import org.apache.pinot.spi.utils.CommonConstants.Segment.Realtime.CompletionMode;
 import org.apache.pinot.spi.utils.IngestionConfigUtils;
@@ -223,6 +227,7 @@ public class RealtimeSegmentDataManager extends SegmentDataManager {
   private final SegmentZKMetadata _segmentZKMetadata;
   private final TableConfig _tableConfig;
   private final RealtimeTableDataManager _realtimeTableDataManager;
+  private final ZkHelixPropertyStore<ZNRecord> _propertyStore;
   private final StreamDataDecoder _streamDataDecoder;
   private final int _segmentMaxRowCount;
   private final String _resourceDataDir;
@@ -733,7 +738,7 @@ public class RealtimeSegmentDataManager extends SegmentDataManager {
               hold();
               break;
             case DISCARD:
-              // Keep this in memory, but wait for the online transition, and download when it comes in.
+              // When exiting the while loop, attempts to download the copy.
               _state = State.DISCARDED;
               break;
             case KEEP:
@@ -782,6 +787,28 @@ public class RealtimeSegmentDataManager extends SegmentDataManager {
               _segmentLogger.error("Holding after response from Controller: {}", response.toJsonString());
               hold();
               break;
+          }
+        }
+        // After going out of the while loop, if the current server still doesn't have a copy of the completed segments,
+        // then attempts to bring up the segment with one last effort.
+        if (!_shouldStop) {
+          if (_state != State.COMMITTED && _state != State.RETAINED) {
+            _segmentLogger.info("Trying to bring the segment online. Current state: " + _state.toString());
+            _segmentLogger.info("Should stop: " + _shouldStop);
+            long maxEndTime =
+                now() + TimeUnit.MILLISECONDS.convert(MAX_TIME_FOR_CONSUMING_TO_ONLINE_IN_SECONDS, TimeUnit.SECONDS);
+            while (now() < maxEndTime) {
+              SegmentZKMetadata zkMetadata =
+                  ZKMetadataProvider.getSegmentZKMetadata(_propertyStore, _tableNameWithType, _segmentNameStr);
+              if (zkMetadata != null) {
+                if (zkMetadata.getStatus() == CommonConstants.Segment.Realtime.Status.IN_PROGRESS) {
+                  hold();
+                } else {
+                  goOnlineFromConsuming(zkMetadata);
+                  break;
+                }
+              }
+            }
           }
         }
       } catch (Exception e) {
@@ -1349,15 +1376,17 @@ public class RealtimeSegmentDataManager extends SegmentDataManager {
   // Assume that this is called only on OFFLINE to CONSUMING transition.
   // If the transition is OFFLINE to ONLINE, the caller should have downloaded the segment and we don't reach here.
   public RealtimeSegmentDataManager(SegmentZKMetadata segmentZKMetadata, TableConfig tableConfig,
-      RealtimeTableDataManager realtimeTableDataManager, String resourceDataDir, IndexLoadingConfig indexLoadingConfig,
-      Schema schema, LLCSegmentName llcSegmentName, Semaphore partitionGroupConsumerSemaphore,
-      ServerMetrics serverMetrics, @Nullable PartitionUpsertMetadataManager partitionUpsertMetadataManager,
+      RealtimeTableDataManager realtimeTableDataManager, ZkHelixPropertyStore<ZNRecord> propertyStore,
+      String resourceDataDir, IndexLoadingConfig indexLoadingConfig, Schema schema, LLCSegmentName llcSegmentName,
+      Semaphore partitionGroupConsumerSemaphore, ServerMetrics serverMetrics,
+      @Nullable PartitionUpsertMetadataManager partitionUpsertMetadataManager,
       @Nullable PartitionDedupMetadataManager partitionDedupMetadataManager, BooleanSupplier isReadyToConsumeData) {
     _segBuildSemaphore = realtimeTableDataManager.getSegmentBuildSemaphore();
     _segmentZKMetadata = segmentZKMetadata;
     _tableConfig = tableConfig;
     _tableNameWithType = _tableConfig.getTableName();
     _realtimeTableDataManager = realtimeTableDataManager;
+    _propertyStore = propertyStore;
     _resourceDataDir = resourceDataDir;
     _indexLoadingConfig = indexLoadingConfig;
     _schema = schema;

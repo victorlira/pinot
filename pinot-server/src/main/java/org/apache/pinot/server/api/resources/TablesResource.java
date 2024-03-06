@@ -95,7 +95,6 @@ import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.stream.ConsumerPartitionState;
-import org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
@@ -737,30 +736,47 @@ public class TablesResource {
         // Segment hosted by this server. Validate segment state
         String segmentName = entry.getKey();
         SegmentDataManager segmentDataManager = tableDataManager.acquireSegment(segmentName);
+        if (segmentDataManager == null) {
+          return new TableSegmentValidationInfo(false, -1);
+        }
         try {
-          switch (segmentState) {
-            case SegmentStateModel.CONSUMING:
-              // Only validate presence of segment
-              if (segmentDataManager == null) {
-                return new TableSegmentValidationInfo(false, -1);
-              }
-              break;
-            case SegmentStateModel.ONLINE:
-              // Validate segment CRC
-              SegmentZKMetadata zkMetadata =
-                  ZKMetadataProvider.getSegmentZKMetadata(_serverInstance.getHelixManager().getHelixPropertyStore(),
-                      tableNameWithType, segmentName);
-              Preconditions.checkState(zkMetadata != null,
-                  "Segment zk metadata not found for segment : " + segmentName);
-              if (segmentDataManager == null || !segmentDataManager.getSegment().getSegmentMetadata().getCrc()
-                  .equals(String.valueOf(zkMetadata.getCrc()))) {
-                return new TableSegmentValidationInfo(false, -1);
-              }
-              maxEndTimeMs = Math.max(maxEndTimeMs, zkMetadata.getEndTimeMs());
-              break;
-            default:
-              break;
+          IndexSegment indexSegment = segmentDataManager.getSegment();
+          if (indexSegment instanceof ImmutableSegment) {
+            // Validate segment CRC
+            SegmentZKMetadata zkMetadata =
+                ZKMetadataProvider.getSegmentZKMetadata(_serverInstance.getHelixManager().getHelixPropertyStore(),
+                    tableNameWithType, segmentName);
+            Preconditions.checkState(zkMetadata != null,
+                "Segment zk metadata not found for segment : " + segmentName);
+            if (!segmentDataManager.getSegment().getSegmentMetadata().getCrc()
+                .equals(String.valueOf(zkMetadata.getCrc()))) {
+              return new TableSegmentValidationInfo(false, -1);
+            }
+            maxEndTimeMs = Math.max(maxEndTimeMs, zkMetadata.getEndTimeMs());
           }
+//          switch (segmentState) {
+//            case SegmentStateModel.CONSUMING:
+//              // Only validate presence of segment
+//              if (segmentDataManager == null) {
+//                return new TableSegmentValidationInfo(false, -1);
+//              }
+//              break;
+//            case SegmentStateModel.ONLINE:
+//              // Validate segment CRC
+//              SegmentZKMetadata zkMetadata =
+//                  ZKMetadataProvider.getSegmentZKMetadata(_serverInstance.getHelixManager().getHelixPropertyStore(),
+//                      tableNameWithType, segmentName);
+//              Preconditions.checkState(zkMetadata != null,
+//                  "Segment zk metadata not found for segment : " + segmentName);
+//              if (segmentDataManager == null || !segmentDataManager.getSegment().getSegmentMetadata().getCrc()
+//                  .equals(String.valueOf(zkMetadata.getCrc()))) {
+//                return new TableSegmentValidationInfo(false, -1);
+//              }
+//              maxEndTimeMs = Math.max(maxEndTimeMs, zkMetadata.getEndTimeMs());
+//              break;
+//            default:
+//              break;
+//          }
         } finally {
           if (segmentDataManager != null) {
             tableDataManager.releaseSegment(segmentDataManager);

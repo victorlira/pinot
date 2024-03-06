@@ -29,7 +29,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.pinot.controller.helix.core.assignment.segment.SegmentAssignmentUtils;
 import org.testng.annotations.Test;
 
-import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.ERROR;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.OFFLINE;
 import static org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE;
@@ -1293,7 +1292,7 @@ public class TableRebalancerTest {
             true, null));
 
     // Should fail when a segment has CONSUMING instance in IdealState but does not exist in ExternalView
-    instanceStateMap.put("instance2", CONSUMING);
+    instanceStateMap.put("instance2", ONLINE);
     assertFalse(
         TableRebalancer.isExternalViewConverged(offlineTableName, externalViewSegmentStates, idealStateSegmentStates,
             false, null));
@@ -1321,7 +1320,7 @@ public class TableRebalancerTest {
             true, null));
 
     // Should pass when instance state matches
-    instanceStateMap.put("instance2", CONSUMING);
+    instanceStateMap.put("instance2", ONLINE);
     assertTrue(
         TableRebalancer.isExternalViewConverged(offlineTableName, externalViewSegmentStates, idealStateSegmentStates,
             false, null));
@@ -1330,7 +1329,7 @@ public class TableRebalancerTest {
             true, null));
 
     // Should pass when there are extra instances in ExternalView
-    instanceStateMap.put("instance3", CONSUMING);
+    instanceStateMap.put("instance3", ONLINE);
     assertTrue(
         TableRebalancer.isExternalViewConverged(offlineTableName, externalViewSegmentStates, idealStateSegmentStates,
             false, null));

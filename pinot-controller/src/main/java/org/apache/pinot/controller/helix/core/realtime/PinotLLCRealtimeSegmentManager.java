@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -533,17 +532,17 @@ public class PinotLLCRealtimeSegmentManager {
     TableConfig tableConfig = getTableConfig(realtimeTableName);
     InstancePartitions instancePartitions = getConsumingInstancePartitions(tableConfig);
     IdealState idealState = getIdealState(realtimeTableName);
-    ExternalView externalView = getExternalView(realtimeTableName);
+//    ExternalView externalView = getExternalView(realtimeTableName);
     // Check whether there is at least 1 replica in ONLINE state for full-auto mode.
-    if (idealState.getRebalanceMode() == IdealState.RebalanceMode.FULL_AUTO) {
-      Preconditions.checkState(
-          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.ONLINE),
-          "Failed to find instance in ONLINE state in IdealState for segment: %s", committingSegmentName);
-    } else {
-      Preconditions.checkState(
-          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.CONSUMING),
-          "Failed to find instance in CONSUMING state in IdealState for segment: %s", committingSegmentName);
-    }
+//    if (idealState.getRebalanceMode() == IdealState.RebalanceMode.FULL_AUTO) {
+//      Preconditions.checkState(
+//          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.ONLINE),
+//          "Failed to find instance in ONLINE state in IdealState for segment: %s", committingSegmentName);
+//    } else {
+//      Preconditions.checkState(
+//          idealState.getInstanceStateMap(committingSegmentName).containsValue(SegmentStateModel.ONLINE),
+//          "Failed to find instance in CONSUMING state in IdealState for segment: %s", committingSegmentName);
+//    }
     int numReplicas = getNumReplicas(tableConfig, instancePartitions);
 
     /*
@@ -837,19 +836,26 @@ public class PinotLLCRealtimeSegmentManager {
     LOGGER.info("Marking CONSUMING segment: {} OFFLINE on instance: {}", segmentName, instanceName);
 
     try {
-      HelixHelper.updateIdealState(_helixManager, realtimeTableName, idealState -> {
-        assert idealState != null;
-        // TODO: how to handle such state updates for FULL-AUTO mode? So far we don't enable FULL-AUTO for REALTIME
-        Map<String, String> stateMap = idealState.getInstanceStateMap(segmentName);
-        String state = stateMap.get(instanceName);
-        if (SegmentStateModel.CONSUMING.equals(state)) {
-          stateMap.put(instanceName, SegmentStateModel.OFFLINE);
-        } else {
-          LOGGER.info("Segment {} in state {} when trying to register consumption stop from {}", segmentName, state,
-              instanceName);
-        }
-        return idealState;
-      }, RetryPolicies.exponentialBackoffRetryPolicy(10, 500L, 1.2f), true);
+      // disable the instance that is assigned to the target realtime segment.
+      _helixAdmin.enablePartition(false, _clusterName, instanceName, realtimeTableName,
+          Collections.singletonList(segmentName));
+//      HelixHelper.updateIdealState(_helixManager, realtimeTableName, idealState -> {
+//        assert idealState != null;
+//        // TODO: how to handle such state updates for FULL-AUTO mode? So far we don't enable FULL-AUTO for REALTIME
+//        Map<String, String> stateMap = idealState.getInstanceStateMap(segmentName);
+//        String state = stateMap.get(instanceName);
+//        if (SegmentStateModel.ONLINE.equals(state)) {
+//          SegmentZKMetadata segmentZKMetadata =
+//              ZKMetadataProvider.getSegmentZKMetadata(_propertyStore, realtimeTableName, segmentName);
+//          if (segmentZKMetadata != null && segmentZKMetadata.getStatus() == Status.IN_PROGRESS) {
+//            stateMap.put(instanceName, SegmentStateModel.OFFLINE);
+//          }
+//        } else {
+//          LOGGER.info("Segment {} in state {} when trying to register consumption stop from {}", segmentName, state,
+//              instanceName);
+//        }
+//        return idealState;
+//      }, RetryPolicies.exponentialBackoffRetryPolicy(10, 500L, 1.2f), true);
     } catch (Exception e) {
       _controllerMetrics.addMeteredTableValue(realtimeTableName, ControllerMeter.LLC_ZOOKEEPER_UPDATE_FAILURES, 1L);
       throw e;
@@ -1195,7 +1201,7 @@ public class PinotLLCRealtimeSegmentManager {
       Map<String, String> instanceStateMap = instanceStatesMap.get(latestSegmentName);
       if (instanceStateMap != null) {
         // Latest segment of metadata is in idealstate.
-        if (instanceStateMap.containsValue(SegmentStateModel.CONSUMING)) {
+        if (instanceStateMap.containsValue(SegmentStateModel.ONLINE)) {
           if (latestSegmentZKMetadata.getStatus() == Status.DONE) {
 
             // step-1 of commmitSegmentMetadata is done (i.e. marking old segment as DONE)
@@ -1294,13 +1300,20 @@ public class PinotLLCRealtimeSegmentManager {
         if (latestSegmentZKMetadata.getStatus() == Status.IN_PROGRESS) {
           // Find the previous CONSUMING segment
           String previousConsumingSegment = null;
-          for (Map.Entry<String, Map<String, String>> segmentEntry : instanceStatesMap.entrySet()) {
-            if (segmentEntry.getValue().containsValue(SegmentStateModel.CONSUMING)
-                && new LLCSegmentName(segmentEntry.getKey()).getPartitionGroupId() == partitionGroupId) {
-              previousConsumingSegment = segmentEntry.getKey();
+          Set<String> consumingSegments = findConsumingSegments(idealState);
+          for (String consumingSegment : consumingSegments) {
+            if (new LLCSegmentName(consumingSegment).getPartitionGroupId() == partitionGroupId) {
+              previousConsumingSegment = consumingSegment;
               break;
             }
           }
+//          for (Map.Entry<String, Map<String, String>> segmentEntry : instanceStatesMap.entrySet()) {
+//            if (segmentEntry.getValue().containsValue(SegmentStateModel.CONSUMING)
+//                && new LLCSegmentName(segmentEntry.getKey()).getPartitionGroupId() == partitionGroupId) {
+//              previousConsumingSegment = segmentEntry.getKey();
+//              break;
+//            }
+//          }
           if (previousConsumingSegment == null) {
             LOGGER.error(
                 "Failed to find previous CONSUMING segment for partition: {} of table: {}, potential data loss",
@@ -1755,16 +1768,7 @@ public class PinotLLCRealtimeSegmentManager {
   }
 
   private Set<String> findConsumingSegments(IdealState idealState) {
-    Set<String> consumingSegments = new TreeSet<>();
-    idealState.getRecord().getMapFields().forEach((segmentName, instanceToStateMap) -> {
-      for (String state : instanceToStateMap.values()) {
-        if (state.equals(SegmentStateModel.CONSUMING)) {
-          consumingSegments.add(segmentName);
-          break;
-        }
-      }
-    });
-    return consumingSegments;
+    return _helixResourceManager.getConsumingSegments(idealState);
   }
 
   /**

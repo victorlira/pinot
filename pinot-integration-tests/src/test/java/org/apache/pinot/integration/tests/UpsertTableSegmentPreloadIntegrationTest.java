@@ -260,7 +260,7 @@ public class UpsertTableSegmentPreloadIntegrationTest extends BaseClusterIntegra
         if (llcSegmentName.getSequenceNumber() < maxSequenceNumber) {
           assertEquals(state, SegmentStateModel.ONLINE);
         } else {
-          assertEquals(state, SegmentStateModel.CONSUMING);
+          assertEquals(state, SegmentStateModel.ONLINE);
         }
       } else {
         assertEquals(state, SegmentStateModel.ONLINE);

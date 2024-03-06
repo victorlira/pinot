@@ -194,7 +194,8 @@ public class RealtimeSegmentAssignment extends BaseSegmentAssignment {
         consumingInstancePartitions, includeConsuming, bootstrap);
 
     SegmentAssignmentUtils.CompletedConsumingOfflineSegmentAssignment completedConsumingOfflineSegmentAssignment =
-        new SegmentAssignmentUtils.CompletedConsumingOfflineSegmentAssignment(nonTierAssignment);
+        new SegmentAssignmentUtils.CompletedConsumingOfflineSegmentAssignment(_helixManager, _tableNameWithType,
+            nonTierAssignment);
     Map<String, Map<String, String>> newAssignment;
 
     // Reassign COMPLETED segments first
@@ -237,7 +238,7 @@ public class RealtimeSegmentAssignment extends BaseSegmentAssignment {
       for (String segmentName : consumingSegmentAssignment.keySet()) {
         List<String> instancesAssigned = assignConsumingSegment(segmentName, consumingInstancePartitions);
         Map<String, String> instanceStateMap =
-            SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING);
+            SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.ONLINE);
         newAssignment.put(segmentName, instanceStateMap);
       }
     } else {

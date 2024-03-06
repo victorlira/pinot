@@ -68,7 +68,7 @@ public class PinotTableIdealStateHelper {
           PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.PINOT_OFFLINE_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
     } else {
       stateModel =
-          PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator.PINOT_REALTIME_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
+          PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.PINOT_OFFLINE_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
     }
 
     // FULL-AUTO Segment Online-Offline state model with a rebalance strategy, crushed auto-rebalance by default

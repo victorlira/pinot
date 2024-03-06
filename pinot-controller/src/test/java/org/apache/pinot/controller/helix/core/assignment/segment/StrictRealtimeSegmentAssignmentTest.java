@@ -274,7 +274,7 @@ public class StrictRealtimeSegmentAssignmentTest {
 
     // Add the new segment into the assignment as CONSUMING
     currentAssignment.put(_segments.get(segmentId),
-        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING));
+        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.ONLINE));
   }
 
   private HelixManager createHelixManager() {

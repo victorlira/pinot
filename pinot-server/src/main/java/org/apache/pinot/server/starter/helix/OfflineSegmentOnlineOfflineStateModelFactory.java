@@ -18,7 +18,6 @@
  */
 package org.apache.pinot.server.starter.helix;
 
-import com.google.common.base.Preconditions;
 import org.apache.helix.NotificationContext;
 import org.apache.helix.model.Message;
 import org.apache.helix.participant.statemachine.StateModel;
@@ -76,10 +75,14 @@ public class OfflineSegmentOnlineOfflineStateModelFactory extends StateModelFact
       String tableNameWithType = message.getResourceName();
       String segmentName = message.getPartitionName();
       TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableNameWithType);
-      Preconditions.checkArgument((tableType != null) && (tableType != TableType.REALTIME),
-          "TableType is null or is a REALTIME table, offline state model should not be called fo RT");
+//      Preconditions.checkArgument((tableType != null) && (tableType != TableType.REALTIME),
+//          "TableType is null or is a REALTIME table, offline state model should not be called fo RT");
       try {
-        _instanceDataManager.addOrReplaceSegment(tableNameWithType, segmentName);
+        if (tableType == TableType.OFFLINE) {
+          _instanceDataManager.addOrReplaceSegment(tableNameWithType, segmentName);
+        } else if (tableType == TableType.REALTIME) {
+          _instanceDataManager.addRealtimeSegment(tableNameWithType, segmentName);
+        }
       } catch (Exception e) {
         String errorMessage =
             String.format("Caught exception in state transition OFFLINE -> ONLINE for table: %s, segment: %s",

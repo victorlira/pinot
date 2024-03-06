@@ -247,7 +247,7 @@ public class PartialUpsertTableRebalanceIntegrationTest extends BaseClusterInteg
         if (llcSegmentName.getSequenceNumber() < maxSequenceNumber) {
           assertEquals(state, CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE);
         } else {
-          assertEquals(state, CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING);
+          assertEquals(state, CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE);
         }
       } else {
         assertEquals(state, CommonConstants.Helix.StateModel.SegmentStateModel.ONLINE);

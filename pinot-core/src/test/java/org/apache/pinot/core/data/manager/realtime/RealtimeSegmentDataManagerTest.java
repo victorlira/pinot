@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import org.apache.commons.io.FileUtils;
 import org.apache.helix.HelixManager;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
+import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
 import org.apache.pinot.common.metrics.ServerMetrics;
 import org.apache.pinot.common.protocols.SegmentCompletionProtocol;
@@ -145,7 +146,11 @@ public class RealtimeSegmentDataManagerTest {
     _partitionGroupIdToSemaphoreMap.putIfAbsent(PARTITION_GROUP_ID, new Semaphore(1));
     Schema schema = Fixtures.createSchema();
     ServerMetrics serverMetrics = new ServerMetrics(PinotMetricUtils.getPinotMetricsRegistry());
-    return new FakeRealtimeSegmentDataManager(segmentZKMetadata, tableConfig, tableDataManager,
+    ZkHelixPropertyStore propertyStore = mock(ZkHelixPropertyStore.class);
+    when(propertyStore.get(anyString(), any(), anyInt())).thenReturn(TableConfigUtils.toZNRecord(tableConfig));
+    HelixManager helixManager = mock(HelixManager.class);
+    when(helixManager.getHelixPropertyStore()).thenReturn(propertyStore);
+    return new FakeRealtimeSegmentDataManager(segmentZKMetadata, tableConfig, tableDataManager, propertyStore,
         new File(TEMP_DIR, REALTIME_TABLE_NAME).getAbsolutePath(), schema, llcSegmentName,
         _partitionGroupIdToSemaphoreMap, serverMetrics, timeSupplier);
   }
@@ -946,11 +951,11 @@ public class RealtimeSegmentDataManagerTest {
     }
 
     public FakeRealtimeSegmentDataManager(SegmentZKMetadata segmentZKMetadata, TableConfig tableConfig,
-        RealtimeTableDataManager realtimeTableDataManager, String resourceDataDir, Schema schema,
-        LLCSegmentName llcSegmentName, Map<Integer, Semaphore> semaphoreMap, ServerMetrics serverMetrics,
-        TimeSupplier timeSupplier)
+        RealtimeTableDataManager realtimeTableDataManager, ZkHelixPropertyStore<ZNRecord> propertyStore,
+        String resourceDataDir, Schema schema, LLCSegmentName llcSegmentName, Map<Integer, Semaphore> semaphoreMap,
+        ServerMetrics serverMetrics, TimeSupplier timeSupplier)
         throws Exception {
-      super(segmentZKMetadata, tableConfig, realtimeTableDataManager, resourceDataDir,
+      super(segmentZKMetadata, tableConfig, realtimeTableDataManager, propertyStore, resourceDataDir,
           new IndexLoadingConfig(makeInstanceDataManagerConfig(), tableConfig), schema, llcSegmentName,
           semaphoreMap.get(llcSegmentName.getPartitionGroupId()), serverMetrics, null, null, () -> true);
       _state = RealtimeSegmentDataManager.class.getDeclaredField("_state");

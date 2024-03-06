@@ -196,7 +196,7 @@ public class RealtimeNonReplicaGroupTieredSegmentAssignmentTest {
         Map<String, String> instanceStateMap = newAssignment.get(_segments.get(segmentId));
         for (Map.Entry<String, String> entry : instanceStateMap.entrySet()) {
           assertTrue(entry.getKey().startsWith(CONSUMING_INSTANCE_NAME_PREFIX));
-          assertEquals(entry.getValue(), SegmentStateModel.CONSUMING);
+          assertEquals(entry.getValue(), SegmentStateModel.ONLINE);
         }
       }
     }
@@ -227,7 +227,7 @@ public class RealtimeNonReplicaGroupTieredSegmentAssignmentTest {
         Map<String, String> instanceStateMap = newAssignment.get(_segments.get(segmentId));
         for (Map.Entry<String, String> entry : instanceStateMap.entrySet()) {
           assertTrue(entry.getKey().startsWith(CONSUMING_INSTANCE_NAME_PREFIX));
-          assertEquals(entry.getValue(), SegmentStateModel.CONSUMING);
+          assertEquals(entry.getValue(), SegmentStateModel.ONLINE);
         }
       }
     }
@@ -345,7 +345,7 @@ public class RealtimeNonReplicaGroupTieredSegmentAssignmentTest {
 
     // Add the new segment into the assignment as CONSUMING
     currentAssignment.put(_segments.get(segmentId),
-        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.CONSUMING));
+        SegmentAssignmentUtils.getInstanceStateMap(instancesAssigned, SegmentStateModel.ONLINE));
   }
 
   /**

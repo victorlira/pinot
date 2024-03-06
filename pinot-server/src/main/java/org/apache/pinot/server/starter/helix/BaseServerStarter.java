@@ -51,6 +51,7 @@ import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.common.Utils;
 import org.apache.pinot.common.config.TlsConfig;
 import org.apache.pinot.common.metadata.ZKMetadataProvider;
+import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
 import org.apache.pinot.common.metrics.ServerMeter;
 import org.apache.pinot.common.metrics.ServerMetrics;
 import org.apache.pinot.common.restlet.resources.SystemResourceInfo;
@@ -298,10 +299,20 @@ public abstract class BaseServerStarter implements ServiceStartable {
         }
         if (checkRealtime && TableNameBuilder.isRealtimeTableResource(resourceName)) {
           for (String partitionName : idealState.getPartitionSet()) {
-            if (StateModel.SegmentStateModel.CONSUMING.equals(
+            if (StateModel.SegmentStateModel.ONLINE.equals(
                 idealState.getInstanceStateMap(partitionName).get(_instanceId))) {
-              consumingSegments.add(partitionName);
+              SegmentZKMetadata segmentZKMetadata =
+                  ZKMetadataProvider.getSegmentZKMetadata(_helixManager.getHelixPropertyStore(), resourceName,
+                      partitionName);
+              if (segmentZKMetadata != null
+                  && segmentZKMetadata.getStatus() == CommonConstants.Segment.Realtime.Status.IN_PROGRESS) {
+                consumingSegments.add(partitionName);
+              }
             }
+//            if (StateModel.SegmentStateModel.CONSUMING.equals(
+//                idealState.getInstanceStateMap(partitionName).get(_instanceId))) {
+//              consumingSegments.add(partitionName);
+//            }
           }
         }
       }
@@ -871,7 +882,7 @@ public abstract class BaseServerStarter implements ServiceStartable {
     for (String partition : externalView.getPartitionSet()) {
       Map<String, String> instanceStateMap = externalView.getStateMap(partition);
       String state = instanceStateMap.get(_instanceId);
-      if (StateModel.SegmentStateModel.ONLINE.equals(state) || StateModel.SegmentStateModel.CONSUMING.equals(state)) {
+      if (StateModel.SegmentStateModel.ONLINE.equals(state)) {
         return false;
       }
     }

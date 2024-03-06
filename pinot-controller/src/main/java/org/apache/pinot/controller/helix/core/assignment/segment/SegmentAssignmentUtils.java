@@ -39,6 +39,7 @@ import org.apache.pinot.common.metadata.segment.SegmentZKMetadata;
 import org.apache.pinot.common.tier.Tier;
 import org.apache.pinot.common.utils.SegmentUtils;
 import org.apache.pinot.segment.spi.partition.metadata.ColumnPartitionMetadata;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.CommonConstants.Helix.StateModel.SegmentStateModel;
 import org.apache.pinot.spi.utils.Pairs;
 
@@ -324,14 +325,27 @@ public class SegmentAssignmentUtils {
     //       1. At least one instance ONLINE -> COMPLETED segment
     //       2. At least one instance CONSUMING -> CONSUMING segment
     //       3. All instances OFFLINE (all instances encountered error while consuming) -> OFFLINE segment
-    CompletedConsumingOfflineSegmentAssignment(Map<String, Map<String, String>> segmentAssignment) {
+    CompletedConsumingOfflineSegmentAssignment(HelixManager helixManager, String tableName,
+        Map<String, Map<String, String>> segmentAssignment) {
       for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
         String segmentName = entry.getKey();
         Map<String, String> instanceStateMap = entry.getValue();
         if (instanceStateMap.containsValue(SegmentStateModel.ONLINE)) {
-          _completedSegmentAssignment.put(segmentName, instanceStateMap);
-        } else if (instanceStateMap.containsValue(SegmentStateModel.CONSUMING)) {
-          _consumingSegmentAssignment.put(segmentName, instanceStateMap);
+          SegmentZKMetadata segmentZKMetadata =
+              ZKMetadataProvider.getSegmentZKMetadata(helixManager.getHelixPropertyStore(), tableName, segmentName);
+          if (segmentZKMetadata == null) {
+            _offlineSegmentAssignment.put(segmentName, instanceStateMap);
+          } else {
+            CommonConstants.Segment.Realtime.Status status = segmentZKMetadata.getStatus();
+            if (status == CommonConstants.Segment.Realtime.Status.IN_PROGRESS) {
+              _consumingSegmentAssignment.put(segmentName, instanceStateMap);
+            } else {
+              _completedSegmentAssignment.put(segmentName, instanceStateMap);
+            }
+          }
+//          _completedSegmentAssignment.put(segmentName, instanceStateMap);
+//        } else if (instanceStateMap.containsValue(SegmentStateModel.CONSUMING)) {
+//          _consumingSegmentAssignment.put(segmentName, instanceStateMap);
         } else {
           _offlineSegmentAssignment.put(segmentName, instanceStateMap);
         }

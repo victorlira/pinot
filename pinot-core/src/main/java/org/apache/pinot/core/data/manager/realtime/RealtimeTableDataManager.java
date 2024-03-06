@@ -311,7 +311,7 @@ public class RealtimeTableDataManager extends BaseTableDataManager {
   public Set<Integer> getHostedPartitionsGroupIds() {
     Set<Integer> partitionsHostedByThisServer = new HashSet<>();
     List<String> segments = TableStateUtils.getSegmentsInGivenStateForThisInstance(_helixManager, _tableNameWithType,
-        CommonConstants.Helix.StateModel.SegmentStateModel.CONSUMING);
+        Status.IN_PROGRESS);
     for (String segmentNameStr : segments) {
       LLCSegmentName segmentName = new LLCSegmentName(segmentNameStr);
       partitionsHostedByThisServer.add(segmentName.getPartitionGroupId());
@@ -440,9 +440,9 @@ public class RealtimeTableDataManager extends BaseTableDataManager {
         _tableDedupMetadataManager != null ? _tableDedupMetadataManager.getOrCreatePartitionManager(partitionGroupId)
             : null;
     RealtimeSegmentDataManager realtimeSegmentDataManager =
-        new RealtimeSegmentDataManager(segmentZKMetadata, tableConfig, this, _indexDir.getAbsolutePath(),
-            indexLoadingConfig, schema, llcSegmentName, semaphore, _serverMetrics, partitionUpsertMetadataManager,
-            partitionDedupMetadataManager, _isTableReadyToConsumeData);
+        new RealtimeSegmentDataManager(segmentZKMetadata, tableConfig, this, _propertyStore,
+            _indexDir.getAbsolutePath(), indexLoadingConfig, schema, llcSegmentName, semaphore, _serverMetrics,
+            partitionUpsertMetadataManager, partitionDedupMetadataManager, _isTableReadyToConsumeData);
     realtimeSegmentDataManager.startConsumption();
     segmentDataManager = realtimeSegmentDataManager;
 

@@ -2814,13 +2814,20 @@ public class PinotHelixResourceManager {
     if (idealState == null) {
       throw new IllegalStateException("Ideal state does not exist for table: " + tableNameWithType);
     }
-    Set<String> consumingSegments = new HashSet<>();
-    for (String segment : idealState.getPartitionSet()) {
-      Map<String, String> instanceStateMap = idealState.getInstanceStateMap(segment);
-      if (instanceStateMap.containsValue(SegmentStateModel.CONSUMING)) {
-        consumingSegments.add(segment);
+    return getConsumingSegments(idealState);
+  }
+
+  public Set<String> getConsumingSegments(IdealState idealState) {
+    Set<String> consumingSegments = new TreeSet<>();
+    idealState.getRecord().getMapFields().forEach((segmentName, instanceToStateMap) -> {
+      if (instanceToStateMap.containsValue(SegmentStateModel.ONLINE)) {
+        SegmentZKMetadata segmentZKMetadata = getSegmentZKMetadata(idealState.getResourceName(), segmentName);
+        if (segmentZKMetadata != null
+            && segmentZKMetadata.getStatus() == CommonConstants.Segment.Realtime.Status.IN_PROGRESS) {
+          consumingSegments.add(segmentName);
+        }
       }
-    }
+    });
     return consumingSegments;
   }
 
@@ -3913,8 +3920,7 @@ public class PinotHelixResourceManager {
     Set<String> matchingSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
     for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
       Map<String, String> instanceStateMap = entry.getValue();
-      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE) || (includeConsuming
-          && instanceStateMap.containsValue(SegmentStateModel.CONSUMING))) {
+      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE)) {
         matchingSegments.add(entry.getKey());
       }
     }
@@ -3931,8 +3937,7 @@ public class PinotHelixResourceManager {
     Set<String> onlineSegments = new HashSet<>(HashUtil.getHashMapCapacity(segmentAssignment.size()));
     for (Map.Entry<String, Map<String, String>> entry : segmentAssignment.entrySet()) {
       Map<String, String> instanceStateMap = entry.getValue();
-      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE) || instanceStateMap.containsValue(
-          SegmentStateModel.CONSUMING)) {
+      if (instanceStateMap.containsValue(SegmentStateModel.ONLINE)) {
         onlineSegments.add(entry.getKey());
       }
     }
