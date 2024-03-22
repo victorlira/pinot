@@ -34,7 +34,7 @@ import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.broker.routing.adaptiveserverselector.AdaptiveServerSelector;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.config.table.assignment.InstancePartitionsType;
@@ -145,12 +145,13 @@ public class MultiStageReplicaGroupSelector extends BaseInstanceSelector {
     Preconditions.checkNotNull(tableType);
     InstancePartitions instancePartitions;
     if (tableType.equals(TableType.OFFLINE)) {
-      instancePartitions = InstancePartitionsUtils.fetchInstancePartitions(_propertyStore,
-          InstancePartitionsUtils.getInstancePartitionsName(_tableNameWithType, tableType.name()));
+      instancePartitions = InstancePartitionsUtilsHelperFactory.create().fetchInstancePartitions(_propertyStore,
+          InstancePartitionsUtilsHelperFactory.create()
+              .getInstancePartitionsName(_tableNameWithType, tableType.name()));
     } else {
-      instancePartitions = InstancePartitionsUtils.fetchInstancePartitions(_propertyStore,
-          InstancePartitionsUtils.getInstancePartitionsName(_tableNameWithType,
-              InstancePartitionsType.CONSUMING.name()));
+      instancePartitions = InstancePartitionsUtilsHelperFactory.create().fetchInstancePartitions(_propertyStore,
+          InstancePartitionsUtilsHelperFactory.create()
+              .getInstancePartitionsName(_tableNameWithType, InstancePartitionsType.CONSUMING.name()));
     }
     Preconditions.checkNotNull(instancePartitions);
     return instancePartitions;

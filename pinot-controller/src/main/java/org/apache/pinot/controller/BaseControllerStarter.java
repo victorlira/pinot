@@ -57,6 +57,7 @@ import org.apache.http.config.SocketConfig;
 import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.pinot.common.Utils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.config.TlsConfig;
 import org.apache.pinot.common.function.FunctionRegistry;
 import org.apache.pinot.common.metadata.ZKMetadataProvider;
@@ -88,6 +89,7 @@ import org.apache.pinot.controller.helix.RealtimeConsumerMonitor;
 import org.apache.pinot.controller.helix.SegmentStatusChecker;
 import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
 import org.apache.pinot.controller.helix.core.cleanup.StaleInstancesCleanupTask;
+import org.apache.pinot.controller.helix.core.idealstatehelper.PinotTableIdealStateHelperFactory;
 import org.apache.pinot.controller.helix.core.minion.PinotHelixTaskResourceManager;
 import org.apache.pinot.controller.helix.core.minion.PinotTaskManager;
 import org.apache.pinot.controller.helix.core.minion.TaskMetricsEmitter;
@@ -200,6 +202,8 @@ public abstract class BaseControllerStarter implements ServiceStartable {
     ServiceStartableUtils.applyClusterConfig(_config, _helixZkURL, _helixClusterName, ServiceRole.CONTROLLER);
 
     setupHelixSystemProperties();
+    // Initialize the ideal state helper for Pinot tables.
+    PinotTableIdealStateHelperFactory.init(_config);
     HelixHelper.setMinNumCharsInISToTurnOnCompression(_config.getMinNumCharsInISToTurnOnCompression());
     _listenerConfigs = ListenerConfigUtil.buildControllerConfigs(_config);
     _controllerMode = _config.getControllerMode();
@@ -408,6 +412,7 @@ public abstract class BaseControllerStarter implements ServiceStartable {
     initControllerFilePathProvider();
     initSegmentFetcherFactory();
     initPinotCrypterFactory();
+    initInstancePartitionUtilsHelperFactory();
 
     LOGGER.info("Initializing QueryRewriterFactory");
     QueryRewriterFactory.init(
@@ -730,6 +735,11 @@ public abstract class BaseControllerStarter implements ServiceStartable {
     } catch (Exception e) {
       throw new RuntimeException("Caught exception while initializing PinotCrypterFactory", e);
     }
+  }
+
+  private void initInstancePartitionUtilsHelperFactory() {
+    LOGGER.info("Initializing InstancePartitionUtilsHelperFactory");
+    InstancePartitionsUtilsHelperFactory.init(_config);
   }
 
   /**

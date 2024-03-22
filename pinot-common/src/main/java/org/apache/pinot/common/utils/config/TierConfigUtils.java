@@ -28,7 +28,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.helix.HelixManager;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.tier.FixedTierSegmentSelector;
 import org.apache.pinot.common.tier.PinotServerTierStorage;
 import org.apache.pinot.common.tier.Tier;
@@ -79,8 +79,9 @@ public final class TierConfigUtils {
       if (tier.getSegmentSelector().selectSegment(tableNameWithType, segmentName)) {
         // Compute default instance partitions
         PinotServerTierStorage storage = (PinotServerTierStorage) tier.getStorage();
-        return InstancePartitionsUtils.computeDefaultInstancePartitionsForTag(helixManager, tableNameWithType,
-            tier.getName(), storage.getServerTag());
+        return InstancePartitionsUtilsHelperFactory.create()
+            .computeDefaultInstancePartitionsForTag(helixManager, tableNameWithType, tier.getName(),
+                storage.getServerTag());
       }
     }
 

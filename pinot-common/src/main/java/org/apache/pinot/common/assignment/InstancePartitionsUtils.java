@@ -43,9 +43,7 @@ import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 /**
  * Utility class for instance partitions.
  */
-public class InstancePartitionsUtils {
-  private InstancePartitionsUtils() {
-  }
+public class InstancePartitionsUtils implements InstancePartitionsUtilsHelper {
 
   public static final char TYPE_SUFFIX_SEPARATOR = '_';
   public static final String TIER_SUFFIX = "__TIER__";
@@ -54,14 +52,16 @@ public class InstancePartitionsUtils {
    * Returns the name of the instance partitions for the given table name (with or without type suffix) and instance
    * partitions type.
    */
-  public static String getInstancePartitionsName(String tableName, String instancePartitionsType) {
+  @Override
+  public String getInstancePartitionsName(String tableName, String instancePartitionsType) {
     return TableNameBuilder.extractRawTableName(tableName) + TYPE_SUFFIX_SEPARATOR + instancePartitionsType;
   }
 
   /**
    * Fetches the instance partitions from Helix property store if it exists, or computes it for backward-compatibility.
    */
-  public static InstancePartitions fetchOrComputeInstancePartitions(HelixManager helixManager, TableConfig tableConfig,
+  @Override
+  public InstancePartitions fetchOrComputeInstancePartitions(HelixManager helixManager, TableConfig tableConfig,
       InstancePartitionsType instancePartitionsType) {
     String tableNameWithType = tableConfig.getTableName();
     String rawTableName = TableNameBuilder.extractRawTableName(tableNameWithType);
@@ -88,15 +88,17 @@ public class InstancePartitionsUtils {
   /**
    * Fetches the instance partitions from Helix property store.
    */
+  @Override
   @Nullable
-  public static InstancePartitions fetchInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
+  public InstancePartitions fetchInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
       String instancePartitionsName) {
     String path = ZKMetadataProvider.constructPropertyStorePathForInstancePartitions(instancePartitionsName);
     ZNRecord znRecord = propertyStore.get(path, null, AccessOption.PERSISTENT);
     return znRecord != null ? InstancePartitions.fromZNRecord(znRecord) : null;
   }
 
-  public static String getInstancePartitionsNameForTier(String tableName, String tierName) {
+  @Override
+  public String getInstancePartitionsNameForTier(String tableName, String tierName) {
     return TableNameBuilder.extractRawTableName(tableName) + TIER_SUFFIX + tierName;
   }
 
@@ -106,7 +108,8 @@ public class InstancePartitionsUtils {
    * This method is useful when we use a table with instancePartitionsMap since in that case
    * the value of a table's instance partitions are copied over from an existing instancePartitions.
    */
-  public static InstancePartitions fetchInstancePartitionsWithRename(HelixPropertyStore<ZNRecord> propertyStore,
+  @Override
+  public InstancePartitions fetchInstancePartitionsWithRename(HelixPropertyStore<ZNRecord> propertyStore,
       String instancePartitionsName, String newName) {
     InstancePartitions instancePartitions = fetchInstancePartitions(propertyStore, instancePartitionsName);
     Preconditions.checkNotNull(instancePartitions,
@@ -121,7 +124,8 @@ public class InstancePartitionsUtils {
    * <p>Choose both enabled and disabled instances with the server tag as the qualified instances to avoid unexpected
    * data shuffling when instances get disabled.
    */
-  public static InstancePartitions computeDefaultInstancePartitions(HelixManager helixManager, TableConfig tableConfig,
+  @Override
+  public InstancePartitions computeDefaultInstancePartitions(HelixManager helixManager, TableConfig tableConfig,
       InstancePartitionsType instancePartitionsType) {
     TenantConfig tenantConfig = tableConfig.getTenantConfig();
     String serverTag;
@@ -148,7 +152,8 @@ public class InstancePartitionsUtils {
    * <p>Choose both enabled and disabled instances with the server tag as the qualified instances to avoid unexpected
    * data shuffling when instances get disabled.
    */
-  public static InstancePartitions computeDefaultInstancePartitionsForTag(HelixManager helixManager,
+  @Override
+  public InstancePartitions computeDefaultInstancePartitionsForTag(HelixManager helixManager,
       String tableNameWithType, String instancePartitionsType, String serverTag) {
     List<String> instances = HelixHelper.getInstancesWithTag(helixManager, serverTag);
     int numInstances = instances.size();
@@ -166,7 +171,8 @@ public class InstancePartitionsUtils {
   /**
    * Persists the instance partitions to Helix property store.
    */
-  public static void persistInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
+  @Override
+  public void persistInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
       ConfigAccessor configAccessor, String helixClusterName, InstancePartitions instancePartitions) {
     String path = ZKMetadataProvider
         .constructPropertyStorePathForInstancePartitions(instancePartitions.getInstancePartitionsName());
@@ -185,7 +191,8 @@ public class InstancePartitionsUtils {
   /**
    * Removes the instance partitions from Helix property store.
    */
-  public static void removeInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
+  @Override
+  public void removeInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
       String instancePartitionsName) {
     String path = ZKMetadataProvider.constructPropertyStorePathForInstancePartitions(instancePartitionsName);
     if (!propertyStore.remove(path, AccessOption.PERSISTENT)) {
@@ -193,7 +200,8 @@ public class InstancePartitionsUtils {
     }
   }
 
-  public static void removeTierInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
+  @Override
+  public void removeTierInstancePartitions(HelixPropertyStore<ZNRecord> propertyStore,
       String tableNameWithType) {
     List<InstancePartitions> instancePartitions = ZKMetadataProvider.getAllInstancePartitions(propertyStore);
     instancePartitions.stream().filter(instancePartition -> instancePartition.getInstancePartitionsName()

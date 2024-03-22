@@ -48,7 +48,7 @@ import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.helix.zookeeper.zkclient.exception.ZkBadVersionException;
 import org.apache.pinot.common.assignment.InstanceAssignmentConfigUtils;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.metrics.ControllerMetrics;
 import org.apache.pinot.common.metrics.ControllerTimer;
 import org.apache.pinot.common.tier.PinotServerTierStorage;
@@ -589,11 +589,11 @@ public class TableRebalancer {
             "COMPLETED segments should not be relocated, skipping fetching/computing COMPLETED instance partitions "
                 + "for table: {}", tableNameWithType);
         if (!dryRun) {
-          String instancePartitionsName = InstancePartitionsUtils.getInstancePartitionsName(tableNameWithType,
-              InstancePartitionsType.COMPLETED.toString());
+          String instancePartitionsName = InstancePartitionsUtilsHelperFactory.create()
+              .getInstancePartitionsName(tableNameWithType, InstancePartitionsType.COMPLETED.toString());
           LOGGER.info("Removing instance partitions: {} from ZK if it exists", instancePartitionsName);
-          InstancePartitionsUtils.removeInstancePartitions(_helixManager.getHelixPropertyStore(),
-              instancePartitionsName);
+          InstancePartitionsUtilsHelperFactory.create()
+              .removeInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
         }
       }
     }
@@ -606,10 +606,10 @@ public class TableRebalancer {
   private Pair<InstancePartitions, Boolean> getInstancePartitions(TableConfig tableConfig,
       InstancePartitionsType instancePartitionsType, boolean reassignInstances, boolean bootstrap, boolean dryRun) {
     String tableNameWithType = tableConfig.getTableName();
-    String instancePartitionsName =
-        InstancePartitionsUtils.getInstancePartitionsName(tableNameWithType, instancePartitionsType.toString());
-    InstancePartitions existingInstancePartitions =
-        InstancePartitionsUtils.fetchInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
+    String instancePartitionsName = InstancePartitionsUtilsHelperFactory.create()
+        .getInstancePartitionsName(tableNameWithType, instancePartitionsType.toString());
+    InstancePartitions existingInstancePartitions = InstancePartitionsUtilsHelperFactory.create()
+        .fetchInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
 
     if (reassignInstances) {
       if (InstanceAssignmentConfigUtils.allowInstanceAssignment(tableConfig, instancePartitionsType)) {
@@ -630,14 +630,15 @@ public class TableRebalancer {
           instancePartitionsUnchanged = instancePartitions.equals(existingInstancePartitions);
           if (!dryRun && !instancePartitionsUnchanged) {
             LOGGER.info("Persisting instance partitions: {} to ZK", instancePartitions);
-            InstancePartitionsUtils.persistInstancePartitions(_helixManager.getHelixPropertyStore(),
-                _helixManager.getConfigAccessor(), _helixManager.getClusterName(), instancePartitions);
+            InstancePartitionsUtilsHelperFactory.create()
+                .persistInstancePartitions(_helixManager.getHelixPropertyStore(), _helixManager.getConfigAccessor(),
+                    _helixManager.getClusterName(), instancePartitions);
           }
         } else {
           String referenceInstancePartitionsName = tableConfig.getInstancePartitionsMap().get(instancePartitionsType);
           if (isPreConfigurationBasedAssignment) {
-            InstancePartitions preConfiguredInstancePartitions =
-                InstancePartitionsUtils.fetchInstancePartitionsWithRename(_helixManager.getHelixPropertyStore(),
+            InstancePartitions preConfiguredInstancePartitions = InstancePartitionsUtilsHelperFactory.create()
+                .fetchInstancePartitionsWithRename(_helixManager.getHelixPropertyStore(),
                     referenceInstancePartitionsName, instancePartitionsName);
             instancePartitions = instanceAssignmentDriver.assignInstances(instancePartitionsType,
                 _helixDataAccessor.getChildValues(_helixDataAccessor.keyBuilder().instanceConfigs(), true),
@@ -646,19 +647,21 @@ public class TableRebalancer {
             if (!dryRun && !instancePartitionsUnchanged) {
               LOGGER.info("Persisting instance partitions: {} (based on {})", instancePartitions,
                   preConfiguredInstancePartitions);
-              InstancePartitionsUtils.persistInstancePartitions(_helixManager.getHelixPropertyStore(),
-                  _helixManager.getConfigAccessor(), _helixManager.getClusterName(), instancePartitions);
+              InstancePartitionsUtilsHelperFactory.create()
+                  .persistInstancePartitions(_helixManager.getHelixPropertyStore(), _helixManager.getConfigAccessor(),
+                      _helixManager.getClusterName(), instancePartitions);
             }
           } else {
-            instancePartitions =
-                InstancePartitionsUtils.fetchInstancePartitionsWithRename(_helixManager.getHelixPropertyStore(),
+            instancePartitions = InstancePartitionsUtilsHelperFactory.create()
+                .fetchInstancePartitionsWithRename(_helixManager.getHelixPropertyStore(),
                     referenceInstancePartitionsName, instancePartitionsName);
             instancePartitionsUnchanged = instancePartitions.equals(existingInstancePartitions);
             if (!dryRun && !instancePartitionsUnchanged) {
               LOGGER.info("Persisting instance partitions: {} (referencing {})", instancePartitions,
                   referenceInstancePartitionsName);
-              InstancePartitionsUtils.persistInstancePartitions(_helixManager.getHelixPropertyStore(),
-                  _helixManager.getConfigAccessor(), _helixManager.getClusterName(), instancePartitions);
+              InstancePartitionsUtilsHelperFactory.create()
+                  .persistInstancePartitions(_helixManager.getHelixPropertyStore(), _helixManager.getConfigAccessor(),
+                      _helixManager.getClusterName(), instancePartitions);
             }
           }
         }
@@ -666,22 +669,20 @@ public class TableRebalancer {
       } else {
         LOGGER.info("{} instance assignment is not allowed, using default instance partitions for table: {}",
             instancePartitionsType, tableNameWithType);
-        InstancePartitions instancePartitions =
-            InstancePartitionsUtils.computeDefaultInstancePartitions(_helixManager, tableConfig,
-                instancePartitionsType);
+        InstancePartitions instancePartitions = InstancePartitionsUtilsHelperFactory.create()
+            .computeDefaultInstancePartitions(_helixManager, tableConfig, instancePartitionsType);
         boolean noExistingInstancePartitions = existingInstancePartitions == null;
         if (!dryRun && !noExistingInstancePartitions) {
           LOGGER.info("Removing instance partitions: {} from ZK", instancePartitionsName);
-          InstancePartitionsUtils.removeInstancePartitions(_helixManager.getHelixPropertyStore(),
-              instancePartitionsName);
+          InstancePartitionsUtilsHelperFactory.create()
+              .removeInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
         }
         return Pair.of(instancePartitions, noExistingInstancePartitions);
       }
     } else {
       LOGGER.info("Fetching/computing {} instance partitions for table: {}", instancePartitionsType, tableNameWithType);
-      return Pair.of(
-          InstancePartitionsUtils.fetchOrComputeInstancePartitions(_helixManager, tableConfig, instancePartitionsType),
-          true);
+      return Pair.of(InstancePartitionsUtilsHelperFactory.create()
+          .fetchOrComputeInstancePartitions(_helixManager, tableConfig, instancePartitionsType), true);
     }
   }
 
@@ -730,9 +731,9 @@ public class TableRebalancer {
     String tableNameWithType = tableConfig.getTableName();
     String tierName = tier.getName();
     String instancePartitionsName =
-        InstancePartitionsUtils.getInstancePartitionsNameForTier(tableNameWithType, tierName);
-    InstancePartitions existingInstancePartitions =
-        InstancePartitionsUtils.fetchInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
+        InstancePartitionsUtilsHelperFactory.create().getInstancePartitionsNameForTier(tableNameWithType, tierName);
+    InstancePartitions existingInstancePartitions = InstancePartitionsUtilsHelperFactory.create()
+        .fetchInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
 
     if (reassignInstances) {
       Map<String, InstanceAssignmentConfig> instanceAssignmentConfigMap = tableConfig.getInstanceAssignmentConfigMap();
@@ -743,14 +744,13 @@ public class TableRebalancer {
             "Instance assignment config for tier: {} does not exist for table: {}, using default instance partitions",
             tierName, tableNameWithType);
         PinotServerTierStorage storage = (PinotServerTierStorage) tier.getStorage();
-        InstancePartitions instancePartitions =
-            InstancePartitionsUtils.computeDefaultInstancePartitionsForTag(_helixManager, tableNameWithType, tierName,
-                storage.getServerTag());
+        InstancePartitions instancePartitions = InstancePartitionsUtilsHelperFactory.create()
+            .computeDefaultInstancePartitionsForTag(_helixManager, tableNameWithType, tierName, storage.getServerTag());
         boolean noExistingInstancePartitions = existingInstancePartitions == null;
         if (!dryRun && !noExistingInstancePartitions) {
           LOGGER.info("Removing instance partitions: {} from ZK", instancePartitionsName);
-          InstancePartitionsUtils.removeInstancePartitions(_helixManager.getHelixPropertyStore(),
-              instancePartitionsName);
+          InstancePartitionsUtilsHelperFactory.create()
+              .removeInstancePartitions(_helixManager.getHelixPropertyStore(), instancePartitionsName);
         }
         return Pair.of(instancePartitions, noExistingInstancePartitions);
       } else {
@@ -763,8 +763,9 @@ public class TableRebalancer {
         boolean instancePartitionsUnchanged = instancePartitions.equals(existingInstancePartitions);
         if (!dryRun && !instancePartitionsUnchanged) {
           LOGGER.info("Persisting instance partitions: {} to ZK", instancePartitions);
-          InstancePartitionsUtils.persistInstancePartitions(_helixManager.getHelixPropertyStore(),
-              _helixManager.getConfigAccessor(), _helixManager.getClusterName(), instancePartitions);
+          InstancePartitionsUtilsHelperFactory.create()
+              .persistInstancePartitions(_helixManager.getHelixPropertyStore(), _helixManager.getConfigAccessor(),
+                  _helixManager.getClusterName(), instancePartitions);
         }
         return Pair.of(instancePartitions, instancePartitionsUnchanged);
       }
@@ -773,9 +774,8 @@ public class TableRebalancer {
         return Pair.of(existingInstancePartitions, true);
       } else {
         PinotServerTierStorage storage = (PinotServerTierStorage) tier.getStorage();
-        InstancePartitions instancePartitions =
-            InstancePartitionsUtils.computeDefaultInstancePartitionsForTag(_helixManager, tableNameWithType, tierName,
-                storage.getServerTag());
+        InstancePartitions instancePartitions = InstancePartitionsUtilsHelperFactory.create()
+            .computeDefaultInstancePartitionsForTag(_helixManager, tableNameWithType, tierName, storage.getServerTag());
         return Pair.of(instancePartitions, true);
       }
     }

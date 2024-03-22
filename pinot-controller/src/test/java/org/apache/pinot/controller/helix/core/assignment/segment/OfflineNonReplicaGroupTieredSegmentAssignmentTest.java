@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.tier.PinotServerTierStorage;
 import org.apache.pinot.common.tier.Tier;
 import org.apache.pinot.common.tier.TierFactory;
@@ -77,21 +77,21 @@ public class OfflineNonReplicaGroupTieredSegmentAssignmentTest {
   private static final List<String> INSTANCES_TIER_A =
       SegmentAssignmentTestUtils.getNameList(TIER_A_INSTANCE_NAME_PREFIX, NUM_INSTANCES_TIER_A);
   private static final String TIER_A_INSTANCE_PARTITIONS_NAME =
-      InstancePartitionsUtils.getInstancePartitionsName(RAW_TABLE_NAME, TIER_A_NAME);
+      InstancePartitionsUtilsHelperFactory.create().getInstancePartitionsName(RAW_TABLE_NAME, TIER_A_NAME);
 
   private static final String TIER_B_INSTANCE_NAME_PREFIX = "tierB_instance_";
   private static final int NUM_INSTANCES_TIER_B = 4;
   private static final List<String> INSTANCES_TIER_B =
       SegmentAssignmentTestUtils.getNameList(TIER_B_INSTANCE_NAME_PREFIX, NUM_INSTANCES_TIER_B);
   private static final String TIER_B_INSTANCE_PARTITIONS_NAME =
-      InstancePartitionsUtils.getInstancePartitionsName(RAW_TABLE_NAME, TIER_B_NAME);
+      InstancePartitionsUtilsHelperFactory.create().getInstancePartitionsName(RAW_TABLE_NAME, TIER_B_NAME);
 
   private static final String TIER_C_INSTANCE_NAME_PREFIX = "tierC_instance_";
   private static final int NUM_INSTANCES_TIER_C = 3;
   private static final List<String> INSTANCES_TIER_C =
       SegmentAssignmentTestUtils.getNameList(TIER_C_INSTANCE_NAME_PREFIX, NUM_INSTANCES_TIER_C);
   private static final String TIER_C_INSTANCE_PARTITIONS_NAME =
-      InstancePartitionsUtils.getInstancePartitionsName(RAW_TABLE_NAME, TIER_C_NAME);
+      InstancePartitionsUtilsHelperFactory.create().getInstancePartitionsName(RAW_TABLE_NAME, TIER_C_NAME);
 
   private Map<InstancePartitionsType, InstancePartitions> _instancePartitionsMap;
   private Map<String, InstancePartitions> _tierInstancePartitionsMap;

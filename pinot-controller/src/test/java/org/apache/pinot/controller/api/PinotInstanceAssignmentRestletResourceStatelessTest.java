@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.tier.TierFactory;
 import org.apache.pinot.common.utils.config.TagNameUtils;
 import org.apache.pinot.controller.ControllerConf;
@@ -238,7 +238,7 @@ public class PinotInstanceAssignmentRestletResourceStatelessTest extends Control
         sendGetRequest(_controllerRequestURLBuilder.forInstancePartitions(RAW_TABLE_NAME, TIER_NAME)));
     assertEquals(instancePartitionsMap.size(), 1);
     assertEquals(instancePartitionsMap.get(TIER_NAME).getInstancePartitionsName(),
-        InstancePartitionsUtils.getInstancePartitionsNameForTier(RAW_TABLE_NAME, TIER_NAME));
+        InstancePartitionsUtilsHelperFactory.create().getInstancePartitionsNameForTier(RAW_TABLE_NAME, TIER_NAME));
 
     // Remove the instance partitions for both offline and real-time table
     sendDeleteRequest(_controllerRequestURLBuilder.forInstancePartitions(RAW_TABLE_NAME, null));

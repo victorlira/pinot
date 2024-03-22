@@ -275,6 +275,7 @@ public class ControllerConf extends PinotConfiguration {
   public static final String ACCESS_CONTROL_USERNAME = "access.control.init.username";
   public static final String ACCESS_CONTROL_PASSWORD = "access.control.init.password";
   public static final String LINEAGE_MANAGER_CLASS = "controller.lineage.manager.class";
+  public static final String PINOT_TABLE_IDEALSTATE_HELPER_CLASS = "controller.pinot.table.idealstate.class";
   // Amount of the time the segment can take from the beginning of upload to the end of upload. Used when parallel push
   // protection is enabled. If the upload does not finish within the timeout, next upload can override the previous one.
   private static final String SEGMENT_UPLOAD_TIMEOUT_IN_MILLIS = "controller.segment.upload.timeoutInMillis";
@@ -298,6 +299,8 @@ public class ControllerConf extends PinotConfiguration {
   private static final String DEFAULT_ACCESS_CONTROL_PASSWORD = "admin";
   private static final String DEFAULT_LINEAGE_MANAGER =
       "org.apache.pinot.controller.helix.core.lineage.DefaultLineageManager";
+  private static final String DEFAULT_PINOT_TABLE_IDEALSTATE_HELPER_CLASS =
+      "org.apache.pinot.controller.helix.core.idealstatehelper.DefaultPinotTableIdealStateHelper";
   private static final long DEFAULT_SEGMENT_UPLOAD_TIMEOUT_IN_MILLIS = 600_000L; // 10 minutes
   private static final int DEFAULT_MIN_NUM_CHARS_IN_IS_TO_TURN_ON_COMPRESSION = -1;
   private static final int DEFAULT_REALTIME_SEGMENT_METADATA_COMMIT_NUMLOCKS = 64;
@@ -870,6 +873,14 @@ public class ControllerConf extends PinotConfiguration {
 
   public void setLineageManagerClass(String lineageModifierClass) {
     setProperty(LINEAGE_MANAGER_CLASS, lineageModifierClass);
+  }
+
+  public String getPinotTableIdealstateHelperClass() {
+    return getProperty(PINOT_TABLE_IDEALSTATE_HELPER_CLASS, DEFAULT_PINOT_TABLE_IDEALSTATE_HELPER_CLASS);
+  }
+
+  public void setPinotTableIdealstateHelperClass(String pinotTableIdealstateHelperClass) {
+    setProperty(PINOT_TABLE_IDEALSTATE_HELPER_CLASS, pinotTableIdealstateHelperClass);
   }
 
   public long getSegmentUploadTimeoutInMillis() {

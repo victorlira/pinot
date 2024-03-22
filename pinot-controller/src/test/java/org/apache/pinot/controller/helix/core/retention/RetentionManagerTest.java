@@ -33,8 +33,8 @@ import org.apache.pinot.common.utils.LLCSegmentName;
 import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.LeadControllerManager;
 import org.apache.pinot.controller.helix.core.PinotHelixResourceManager;
-import org.apache.pinot.controller.helix.core.PinotTableIdealStateHelper;
 import org.apache.pinot.controller.helix.core.SegmentDeletionManager;
+import org.apache.pinot.controller.helix.core.idealstatehelper.PinotTableIdealStateHelperFactory;
 import org.apache.pinot.core.realtime.impl.fakestream.FakeStreamConfigUtils;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
@@ -270,9 +270,7 @@ public class RetentionManagerTest {
     final int replicaCount = tableConfig.getReplication();
 
     List<SegmentZKMetadata> segmentsZKMetadata = new ArrayList<>();
-
-    IdealState idealState =
-        PinotTableIdealStateHelper.buildEmptyIdealStateFor(REALTIME_TABLE_NAME, replicaCount, true);
+    IdealState idealState = PinotTableIdealStateHelperFactory.create().buildEmptyIdealStateFor(tableConfig, true);
 
     final int kafkaPartition = 5;
     final long millisInDays = TimeUnit.DAYS.toMillis(1);
@@ -334,9 +332,7 @@ public class RetentionManagerTest {
     final int replicaCount = tableConfig.getReplication();
 
     List<SegmentZKMetadata> segmentsZKMetadata = new ArrayList<>();
-
-    IdealState idealState =
-        PinotTableIdealStateHelper.buildEmptyIdealStateFor(REALTIME_TABLE_NAME, replicaCount, true);
+    IdealState idealState = PinotTableIdealStateHelperFactory.create().buildEmptyIdealStateFor(tableConfig, true);
 
     final int kafkaPartition = 5;
     final long millisInDays = TimeUnit.DAYS.toMillis(1);

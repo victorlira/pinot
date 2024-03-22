@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.assignment.InstanceAssignmentConfigUtils;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.assignment.InstanceAssignmentConfig;
 import org.apache.pinot.spi.config.table.assignment.InstanceConstraintConfig;
@@ -76,9 +76,9 @@ public class InstanceAssignmentDriver {
 
   public InstancePartitions assignInstances(String tierName, List<InstanceConfig> instanceConfigs,
       @Nullable InstancePartitions existingInstancePartitions, InstanceAssignmentConfig instanceAssignmentConfig) {
-    return getInstancePartitions(
-        InstancePartitionsUtils.getInstancePartitionsNameForTier(_tableConfig.getTableName(), tierName),
-        instanceAssignmentConfig, instanceConfigs, existingInstancePartitions, null);
+    return getInstancePartitions(InstancePartitionsUtilsHelperFactory.create()
+            .getInstancePartitionsNameForTier(_tableConfig.getTableName(), tierName), instanceAssignmentConfig,
+        instanceConfigs, existingInstancePartitions, null);
   }
 
   private InstancePartitions getInstancePartitions(String instancePartitionsName,

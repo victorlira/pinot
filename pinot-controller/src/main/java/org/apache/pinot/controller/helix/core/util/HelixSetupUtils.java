@@ -48,6 +48,7 @@ import org.apache.pinot.controller.ControllerConf;
 import org.apache.pinot.controller.helix.core.PinotHelixBrokerResourceOnlineOfflineStateModelGenerator;
 import org.apache.pinot.controller.helix.core.PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator;
 import org.apache.pinot.controller.helix.core.PinotHelixRealtimeSegmentOnlineOfflineStateModelGenerator;
+import org.apache.pinot.controller.helix.core.PinotHelixSegmentOnlineOfflineStateModelGenerator;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,6 +167,20 @@ public class HelixSetupUtils {
       }
       helixDataAccessor.createStateModelDef(
           PinotHelixOfflineSegmentOnlineOfflineStateModelGenerator.generatePinotStateModelDefinition());
+    }
+
+    String segmentStateModelName =
+        PinotHelixSegmentOnlineOfflineStateModelGenerator.PINOT_SEGMENT_ONLINE_OFFLINE_STATE_MODEL;
+    StateModelDefinition defaultStateModelDefinition =
+        helixAdmin.getStateModelDef(helixClusterName, segmentStateModelName);
+    if (defaultStateModelDefinition == null || isUpdateStateModel) {
+      if (defaultStateModelDefinition == null) {
+        LOGGER.info("Adding state model: {} with CONSUMING state", segmentStateModelName);
+      } else {
+        LOGGER.info("Updating state model: {} to contain CONSUMING state", segmentStateModelName);
+      }
+      helixDataAccessor.createStateModelDef(
+          PinotHelixSegmentOnlineOfflineStateModelGenerator.generatePinotStateModelDefinition());
     }
   }
 

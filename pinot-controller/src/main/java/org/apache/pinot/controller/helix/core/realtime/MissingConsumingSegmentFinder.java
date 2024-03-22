@@ -36,7 +36,7 @@ import org.apache.pinot.common.metrics.ControllerGauge;
 import org.apache.pinot.common.metrics.ControllerMeter;
 import org.apache.pinot.common.metrics.ControllerMetrics;
 import org.apache.pinot.common.utils.LLCSegmentName;
-import org.apache.pinot.controller.helix.core.PinotTableIdealStateHelper;
+import org.apache.pinot.controller.helix.core.idealstatehelper.PinotTableIdealStateHelperFactory;
 import org.apache.pinot.spi.stream.OffsetCriteria;
 import org.apache.pinot.spi.stream.StreamConfig;
 import org.apache.pinot.spi.stream.StreamConsumerFactoryProvider;
@@ -79,7 +79,7 @@ public class MissingConsumingSegmentFinder {
     _partitionGroupIdToLargestStreamOffsetMap = new HashMap<>();
     streamConfig.setOffsetCriteria(OffsetCriteria.LARGEST_OFFSET_CRITERIA);
     try {
-      PinotTableIdealStateHelper.getPartitionGroupMetadataList(streamConfig, Collections.emptyList())
+      PinotTableIdealStateHelperFactory.create().getPartitionGroupMetadataList(streamConfig, Collections.emptyList())
           .forEach(metadata -> {
             _partitionGroupIdToLargestStreamOffsetMap.put(metadata.getPartitionGroupId(), metadata.getStartOffset());
           });

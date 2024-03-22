@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.tier.TierFactory;
 import org.apache.pinot.common.utils.config.TagNameUtils;
 import org.apache.pinot.controller.helix.ControllerTest;
@@ -257,7 +257,7 @@ public class TableRebalancerClusterStatelessTest extends ControllerTest {
     rebalanceConfig.setReassignInstances(true);
     rebalanceResult = tableRebalancer.rebalance(tableConfig, rebalanceConfig, null);
     assertEquals(rebalanceResult.getStatus(), RebalanceResult.Status.DONE);
-    assertNull(InstancePartitionsUtils.fetchInstancePartitions(_propertyStore,
+    assertNull(InstancePartitionsUtilsHelperFactory.create().fetchInstancePartitions(_propertyStore,
         InstancePartitionsType.OFFLINE.getInstancePartitionsName(RAW_TABLE_NAME)));
 
     // All servers should be assigned to the table

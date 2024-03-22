@@ -52,7 +52,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.assignment.InstancePartitions;
-import org.apache.pinot.common.assignment.InstancePartitionsUtils;
+import org.apache.pinot.common.assignment.InstancePartitionsUtilsHelperFactory;
 import org.apache.pinot.common.metadata.controllerjob.ControllerJobType;
 import org.apache.pinot.common.metrics.ControllerMeter;
 import org.apache.pinot.common.metrics.ControllerMetrics;
@@ -305,9 +305,8 @@ public class PinotTenantRestletResource {
       @QueryParam("instancePartitionType") String instancePartitionType) {
     String tenantNameWithType = InstancePartitionsType.valueOf(instancePartitionType)
         .getInstancePartitionsName(tenantName);
-    InstancePartitions instancePartitions =
-        InstancePartitionsUtils.fetchInstancePartitions(_pinotHelixResourceManager.getPropertyStore(),
-            tenantNameWithType);
+    InstancePartitions instancePartitions = InstancePartitionsUtilsHelperFactory.create()
+        .fetchInstancePartitions(_pinotHelixResourceManager.getPropertyStore(), tenantNameWithType);
 
     if (instancePartitions == null) {
       throw new ControllerApplicationException(LOGGER,
@@ -358,8 +357,9 @@ public class PinotTenantRestletResource {
   private void persistInstancePartitionsHelper(InstancePartitions instancePartitions) {
     try {
       LOGGER.info("Persisting instance partitions: {}", instancePartitions);
-      InstancePartitionsUtils.persistInstancePartitions(_pinotHelixResourceManager.getPropertyStore(),
-          _pinotHelixResourceManager.getHelixZkManager().getConfigAccessor(),
+      InstancePartitionsUtilsHelperFactory.create()
+          .persistInstancePartitions(_pinotHelixResourceManager.getPropertyStore(),
+              _pinotHelixResourceManager.getHelixZkManager().getConfigAccessor(),
           _pinotHelixResourceManager.getHelixClusterName(), instancePartitions);
     } catch (Exception e) {
       throw new ControllerApplicationException(LOGGER, "Caught Exception while persisting the instance partitions",
